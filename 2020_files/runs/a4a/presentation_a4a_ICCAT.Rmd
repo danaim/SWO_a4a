@@ -1,0 +1,988 @@
+---
+title: ASSESSMENT OF THE MEDITERRANEAN SWORDFISH using A4A
+author: "D. Mantopoulou-Palouka and G. Tserpes"
+date: "SCRS/2020/078"
+output:
+  ioslides_presentation:
+    smaller: yes
+    widescreen: yes
+  html_document:
+    df_print: paged
+  beamer_presentation: default
+---
+
+\pagenumbering{arabic}
+
+\pagestyle{fancy}
+\fancypagestyle{plain}{\pagestyle{fancy}}
+\fancyhead{}
+\fancyhead[L]{SCRS 2020/078}
+
+\begin{center} 
+\emph{SUMMARY}
+\end{center}
+
+<!-- Assessments of the Mediterranean swordfish stock are performed using a statistical catch-at-age model, developed in the framework of Assessment for All (a4a) Initiative of the European Commission Joint Research Centre. Four runs are presented, including assumptions on natural mortality and the presence of discards in the catch. The model structural components are kept the same for each run. All of the assessment runs indicate that the stock is overexploited and the current fishing mortality rates are higher than those corresponding to maximum sustainable yield (MSY) levels. -->
+
+\newpage
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, out.height = "90%")
+rm(list = ls())
+library(reshape2)
+# library(FLXSA)
+library(ggplot2)
+library(ggplotFL)
+library(FLCore)
+library(mixdist)
+library(plyr)
+library(data.table)
+library(dplyr)
+library(FLa4a)
+library(FLEDA)
+library(FLAssess)
+library(FLash)
+library(FLBRP) 
+library(kobe)
+library(knitr)
+library(scales)
+library(ggthemes);theme_set(theme_bw())
+setwd("~/pCloudDrive/ICCAT/runs/a4a")
+load("~/pCloudDrive/ICCAT/data/swom_mixed_data_bioIndexes_corrected_2008.rda")
+iFig=0
+iTab=0
+```
+
+```{r data prep, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+### Stock object
+stk <- swom
+
+### Index object
+idx <- u
+
+### Stock object with discards
+load("~/pCloudDrive/ICCAT/data/swom_mixed_data_bioIndexes_dsc.rda")
+stk_disc <- swom
+
+### set the units
+units(landings(stk)) <- units(landings(stk_disc)) <-"t"
+units(catch(stk)) <- units(catch(stk_disc)) <- "t"
+units(catch.n(stk)) <- units(catch.n(stk_disc)) <- ""
+units(catch.wt(stk)) <- units(catch.wt(stk_disc)) <- "t"
+units(stock.n(stk)) <- units(stock.n(stk_disc)) <- ""
+units(stock.wt(stk)) <- units(stock.wt(stk_disc)) <- "t"
+units(mat(stk)) <- units(mat(stk_disc)) <- ""
+units(m(stk)) <- units(m(stk_disc)) <- "m"
+units(harvest(stk)) <- units(harvest(stk_disc)) <- "f"
+
+# catch.n(stk)[catch.n(stk_disc) == 0] <- 0.1
+
+range(stk, c("minfbar", "maxfbar")) = c(2, 4)
+range(stk_disc, c("minfbar", "maxfbar")) = c(2, 4)
+
+### Biomass index
+idx <- u
+summary(idx)
+
+idx_bio <- FLIndices()
+
+for (i in 1:length(idx)) {
+  dms <- list(age="all", year=range(idx[[i]])["minyear"]:range(idx[[i]])["maxyear"])
+  idx_bio[[i]] <- FLIndexBiomass(FLQuant(NA, dimnames=dms))
+  index(idx_bio[[i]]) <- quantSums(index(idx[[i]]))
+}
+
+names(idx_bio) <- names(idx)
+
+
+for(i in 1:length(idx_bio)) {
+  range(idx_bio[[i]],c("startf","endf")) = c(0,1)
+  range(idx_bio[[i]],c("min","max")) = c(2,4)
+  units(index(idx_bio[[i]])) <- ""
+}
+
+
+### Lorenzen M
+stk_L <- stk
+par=FLPar(Linf=238.59,K=0.185,t0=-1.404,a=9.62e-3,b=3.06,l50=132,
+          m1=20/c(mean(stock.wt(stk_L)["3"])),m2=FLPar(-0.309))
+
+m=FLife:::lorenzen(stock.wt(stk_L),par[c("m1","m2")])
+par["m1"]=0.2*par["m1"]/mean(m["3"])  
+
+m(stk_L)=FLife:::lorenzen(stock.wt(stk_L),par[c("m1","m2")])
+
+## Lorenzen M for Discards
+
+stk_disc_L <- stk_disc
+par=FLPar(Linf=238.59,K=0.185,t0=-1.404,a=9.62e-3,b=3.06,l50=132,
+          m1=20/c(mean(stock.wt(stk_disc_L)["3"])),m2=FLPar(-0.309))
+
+m=FLife:::lorenzen(stock.wt(stk_disc_L),par[c("m1","m2")])
+par["m1"]=0.2*par["m1"]/mean(m["3"])  
+
+m(stk_disc_L)=FLife:::lorenzen(stock.wt(stk_disc_L),par[c("m1","m2")])
+
+# fix units:
+units(landings(stk_L)) <- units(landings(stk_disc_L)) <-"t"
+units(catch(stk_L)) <- units(catch(stk_disc_L)) <- "t"
+units(catch.n(stk_L)) <- units(catch.n(stk_disc_L)) <- ""
+units(catch.wt(stk_L)) <- units(catch.wt(stk_disc_L)) <- "t"
+units(stock.n(stk_L)) <- units(stock.n(stk_disc_L)) <- ""
+units(stock.wt(stk_L)) <- units(stock.wt(stk_disc_L)) <- "t"
+units(mat(stk_L)) <- units(mat(stk_disc_L)) <- ""
+units(m(stk_L)) <- units(m(stk_disc_L)) <- "m"
+units(harvest(stk_L)) <- units(harvest(stk_disc_L)) <- "f"
+```
+
+# Introduction
+
+## Introduction
+
+- A4a is a statistical catch-at-age stock assessment model (Jardim et al., 2015)
+
+- Is defined by submodels for F-at-age, abundance indices catchability-at-age, recruitment, observation variance of catch and abundance indices-at-age and population's age structure in the first year
+
+- Baranov's equation for the catches is assumed
+
+- lognormal errors for the catch and indices
+
+- Works forward in time
+
+- Implemented in R statistical software - part of the FLR library (Kell et al., 2007)
+<!-- In the present document, a statistical catch-at-age stock assessment model is being used to assess the status of the Mediterranean swordfish stock. The model was developed under the Assessment for All `r "(a4a)"` initiative (Jardim et al., 2015) of the European Commission Joint Research Centre. The stock assessment framework is a non-linear catch-at-age model and is defined by submodels, which are the different parts that require structural assumptions. There are 5 submodels in operation: F-at-age, abundance indices catchability-at-age, recruitment, observation variance of catch and abundance indices-at-age and population's age structure in the first year. Modelling assumptions include: Baranov's equation for the catches, exponential decay of the population numbers and lognormality of catch and abundance indices errors. The a4a method utilizes catch-at-age data to derive estimates of historical population size and fishing mortality and, unlike XSA, model parameters estimated using by working forward in time while analyses do not require the assumption that removals from the fishery are known without error. -->
+
+# Materials and Methods
+
+<!-- A4a is implemented in R Statistical Environment (R Development Core Team, 2020) and ADMB (Fournier et al., 2012), as a package (FLa4a) and part of the FLR-library (Kell et al., 2007;http://flr-project.org/). The available catch-at-size (CAS) data covered the period 1972-2018 and the catch at age (CAA) data were generated using a statistical approach similarly to the two previous assessments. In those past assessments, the statistical method was found to be preferable to the deterministic age slicing approach. It should be noted that serious updates have been performed in the historical CAS data since the previous assessment. The available CAS did not justify splitting CAS into ages greater than 6, although the very low numbers at age 6 suggested to use a plus group of 5 in the candidate runs. Initial analysis of the CAA data set revealed a very low (nearly zero) abundance rate for age 5 in 2008, which was incompatible with the rest estimates. Preliminary runs indicated that this was resulting in highly biased fishing mortality estimates for 2007 and it was decided to replace the given rate with a figure corresponding to the mean of the proportional contribution of age 5 in the total catch during the previous five years. -->
+
+## Materials and Methods
+
+### Catch Data
+- Catch-at-age data since 1985
+- plus group 5
+- fbar at 2 - 4
+
+### CPUE Data
+
+- Five standardized CPUE series
+
+    - Greek longliners since 1987
+    - Moroccan longliners since 2012
+    - Spanish longliners since 1988
+    - Ligurian longliners since 2010
+    - Sicilian longliners from 1991 to 2009
+    
+- Representative of age groups 2 - 4
+
+<!-- Five standardized CPUE series extending up to the latest years were considered:  Greek longliners (SCRS 2020/021), Moroccan longliners (SCRS 2020/026), Spanish longliners (SCRS 2020/043), Ligurian longliners (SCRS 2020/027) and Sicilian longliners (Tserpes et al. 2011). The standardized CPUE indices were not differentiated by age and were considered to be representative of the 2-4 age-group abundances. In the 2016 assessment it was assumed that fish first mature at age 3 (when 50% are mature) and are fully mature at older ages. Considering new information (ICCAT 2020), it was currently assumed 15% and 65% maturation at ages 2 and 3 respectively. Full maturity was considered from age 4 onward. Weights-at-age were derived from the mixture analysis and were consistent with the CAA. The F range (fbar) was set to ages 2-4, as in the previous assessments. Figure 1 illustrates the available CAA data by age and year while Figure 2 illustrates the available biomass indices by country.  -->
+
+<!-- ## Catch Data -->
+
+<!-- ```{r catch.n plot, echo=FALSE, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- ### catch @ age -->
+<!-- #### discards included -->
+<!-- catch_comp <- as.data.frame(catch.n(stk))[,c(1,2,7)] -->
+<!-- catch_comp$stk <- 'no_disc' -->
+
+<!-- temp <- as.data.frame(catch.n(stk_disc))[,c(1,2,7)] -->
+<!-- temp$stk <- 'disc' -->
+<!-- catch_comp <- rbind(catch_comp, temp); rm(temp) -->
+
+<!-- ggplot(aes(year,data, color = as.factor(stk)), data = catch_comp)+theme(legend.position="none")+ -->
+<!--   geom_line() + facet_grid(age ~. ) -->
+<!-- ``` -->
+
+<!-- **Figure `r iFig=iFig+1;iFig`**. Time series of catch-at-age (blue line) and time series of catch-at-age including discards (red line).\ -->
+
+## CPUE indices
+
+```{r index plot, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+## index plots
+plot_idx <- as.data.frame(idx_bio)
+
+ggplot(aes(year, data), data = plot_idx[plot_idx$slot == 'index',c(1,3,8,9)]) +
+  geom_line(stat = 'identity')+ facet_grid(cname ~.)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Time series of scaled standardized CPUE indices by fleet: GR_LL = Greek longline, SP_LL = Spanish longline, MO_LL = Moroccan longline, LI_LL = Ligurian longline, SI_LL = Sicilian longline.\ -->
+
+\newpage
+
+## Candidate Runs
+
+- Many preliminary trials with:
+
+    - Full time series
+    - Various assumptions for the different submodels
+    - Excluding some of the indices
+    
+- Four trials considered:
+
+    - Constant M = 0.2
+    - M vector - Lorenzen's formulation
+    - Including estimated Discards and constant M
+    - Including estimated Discards and Lorenzen M
+ 
+
+<!-- Preliminary trials with the full CAA data set revealed unusual estimates for the earliest period. Given that, and the fact that the earliest CPUE series starts in 1987, it was decided to apply the candidate runs from 1985 onward, similarly to the previous assessments. The very few individuals present in age 6 suggested to use a plus group of 5, which improved a lot the stability of the different models tested as well as the residuals in catch-at-age numbers. Four different runs with the same a4a submodel setup are presented in this document. One with constant mortality vector M = 0.2, one with a differentiated natural mortality vector among ages using Lorenzen formula and the aforementioned different natural mortality vectors applied using a stock object with discards included. Various preliminary runs were conducted using different combination of the five available submodels. A final one was selected both in terms of residuals and model diagnostics as well as reasonable values for the estimated values of F, recruitment and SSB. The same final model setup is applied in all four different input stock objects. -->
+
+## Model setup
+
+**The model setup is the same for all runs**
+
+- Fishing mortality $\mathbf{F}$
+$$F: \quad \sim s(year, k = 17) + s(age, k = 3)$$
+- Recruitment $\mathbf{R}$
+$$R:\quad \sim s(year, k = 15)$$
+- catchability $\mathbf{Q}$
+
+$$  
+Q : 
+     \begin{cases}
+       \sim 1, &\quad \text{Greek longline}\\
+       \sim 1, &\quad \text{Spanish longline}\\
+       \sim s(year, k=3), &\quad \text{Moroccan longline}\\
+       \sim s(year, k=3), &\quad \text{Ligurian longline}\\
+       \sim 1, &\quad \text{Sicilian longline}\\
+     \end{cases}
+$$
+
+<!-- For the fishing mortality $\mathbf{F}$, a separable submodel is being used, in which age and year effects are modeled by using thin plate regression splines (smoothers) provided by the package mgcv (Wood, 2003): -->
+<!-- $$F: \quad \sim s(year, k = 17) + s(age, k = 3)$$ -->
+<!-- For the recruitment $\mathbf{R}$, a smoother through the years is being used: -->
+<!-- $$R:\quad \sim s(year, k = 15)$$ -->
+<!-- For the catchability of the surveys $\mathbf{Q}$ five different models needed to be specified, one for each and while for the Greek, Spanish and Sicilian longline a constant model $(\sim 1)$ was assumed, for Moroccan and Ligurian longlines, a smoothing effect on the year was assumed, due to the trend in the residuals. -->
+<!-- $$   -->
+<!-- Q :  -->
+<!--      \begin{cases} -->
+<!--        \sim 1, &\quad \text{Greek longline}\\ -->
+<!--        \sim 1, &\quad \text{Spanish longline}\\ -->
+<!--        \sim s(year, k=3), &\quad \text{Moroccan longline}\\ -->
+<!--        \sim s(year, k=3), &\quad \text{Ligurian longline}\\ -->
+<!--        \sim 1, &\quad \text{Sicilian longline}\\ -->
+<!--      \end{cases} -->
+<!-- $$ -->
+
+## Model setup
+
+- observation variance $\mathbf{\sigma^2}$ of the catches
+
+$$ \sigma^2 \sim s(age, k = 3)$$
+- variance of the indices 
+$$ \tau^{2}_{s} \sim 1,\quad \text{for all indices } s$$ 
+
+- initial age structure $\mathbf{N_1}$
+
+$$ N : \quad\sim s(age, k =3)$$ 
+<!-- For the observation variance $\mathbf{\sigma^2}$ of the catches, the default spline through ages was selected and assumed no year effect, while the observation variances $\mathbf{\tau^{2}_{s}}$ of the five different tuning indices $s$, were all assumed constant throughout years. -->
+
+<!-- $$ \sigma^2 \sim s(age, k = 3), \quad\quad \tau^{2}_{s} \sim 1,\quad \text{for all } s$$ -->
+<!-- For the initial age structure $\mathbf{N_1}$ a smoother also was applied: -->
+<!-- $$ N : \quad\sim s(age, k =3)$$ -->
+<!-- \newpage -->
+
+# Results
+
+The results for the four different runs are presented in the following sections. The constant natural mortality M = 0.2, (constant M), the Lorenzen natural mortality (Lorenzen M), the run with discards included and M assumed constant (Discards) and the run with discards included and Lorenzen natural mortality vector (Discards and Lorenzen M).
+
+```{r set plus group, comment=NA, message=F, echo=F, warning=F}
+### Trim the stocks
+stk <- trim(stk, year = 1985:2018)
+stk_L <- trim(stk_L, year = 1985:2018)
+stk_disc <- trim(stk_disc, year = 1985:2018)
+stk_disc_L <- trim(stk_disc_L, year = 1985:2018)
+
+### Set the plus group to the four stocks
+stk <- setPlusGroup(stk, 5)
+stk_L <- setPlusGroup(stk_L, 5)
+stk_disc <- setPlusGroup(stk_disc, 5)
+stk_disc_L <- setPlusGroup(stk_disc_L, 5)
+```
+
+## candidate run | assuming constant M
+
+```{r RUN constM, comment=NA, message=F, echo=F, warning=F}
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+qmod2 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1)
+fit9 <- sca(stk, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod2)
+a4a.stk9 <- stk + fit9
+```
+
+<!-- Model estimates for the candidate run assuming constant M are plotted in **Figures `r iFig+1` - `r iFig+2`**. -->
+
+```{r plot constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9 <- simulate(fit9, 1000)
+a4a.stk9_sim <- stk + fits9
+plot(FLStocks(catch_obs = stk, constant_M = a4a.stk9_sim)) + theme(legend.position="none")
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimated time series for the candidate run assuming constant M. Blue shaded areas represent the 80% estimated credible intervals, catch observations are presented in red line.\ -->
+
+## candidate run | assuming constant M - harvest
+
+```{r harvest constM, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk9)), drape = TRUE,
+          screen = list(x = -90, y=-45), zlab = 'F',
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100))
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimates of harvest by age and year for the candidate run assuming constant M.\ -->
+
+\newpage
+
+## Diagnostics | candidate run assuming constant M
+
+<!-- Diagnostics plots for the candidate run assuming constant M are shown in **Figures `r iFig+1` - `r iFig+4`** -->
+
+```{r std res constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit9, stk, idx_bio)
+plot(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Standardized residuals for biomass indices and catch numbers for candidate run assuming constant M. Each panel is coded by age class, dots represent standardized residuals and lines a simple smoother. -->
+
+<!-- # ```{r bubble res constM, echo=FALSE, fig.height=5, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- # bubbles(res) -->
+<!-- # ``` -->
+<!-- # **Figure `r iFig=iFig+1;iFig`**. Bubble plot of standardized residuals for biomass indices and for catch numbers for candidate run assuming constant M. -->
+## Diagnostics | candidate run assuming constant M
+```{r quantile res constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+qqmath(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Quantile-quantile plot of standardized residuals for biomass indices and catch numbers for the candidate run assuming constant M. Each panel is coded by age class, dots represent standardized residuals and lines the normal distribution quantiles. -->
+
+## Diagnostics | candidate run assuming constant M
+```{r obs VS fit const M, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+plot(fit9, stk)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Observed against fitted values by year and age for the candidate run assuming constant M. -->
+
+## Retrospective plot | candidate run assuming constant M
+
+```{r retro constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=3, kfrac="missing", k, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk, idx_bio, k=17, srmodel= srmod1, qmodel = qmod2)
+plot(retro.lst)+theme(legend.position="none")
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Retrospective plot for the candidate run assuming constant M.\ -->
+
+\newpage
+
+## Candidate run | assuming Lorenzen M vector
+
+```{r RUN LorenM, comment=NA, message=F, echo=F, warning=F}
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+qmod2 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1)
+fit9_L <- sca(stk_L, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod2)
+a4a.stk9_L <- stk_L + fit9_L
+```
+
+<!-- Model estimates for the candidate run assuming Lorenzen M vector are plotted in **Figures `r iFig+1` - `r iFig+2`**. -->
+
+```{r plot LorenM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9_L <- simulate(fit9_L, 1000)
+a4a.stk9_L_sim <- stk_L + fits9_L
+plot(FLStocks(catch_obs = stk, fit = a4a.stk9_L_sim))+theme(legend.position="none")
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimated time series for the candidate run assuming Lorenzen M vector. Blue shaded areas represent the 80% estimated credible intervals, catch observations are presented in red line.\ -->
+
+## Candidate run | assuming Lorenzen M vector-harvest
+
+```{r harvest LorenM, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk9_L)), drape = TRUE,
+          screen = list(x = -90, y=-45), zlab = 'F',
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100))
+```
+
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimates of harvest by age and year for the candidate run assuming Lorenzen M vector.\ -->
+
+\newpage
+
+## Diagnostics | candidate run assuming Lorenzen M vector
+
+<!-- Diagnostics plots for the candidate run assuming Lorenzen M vector are shown in **Figures `r iFig+1` - `r iFig+4`** -->
+
+```{r std res LorenM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit9_L, stk_L, idx_bio)
+plot(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Standardized residuals for biomass indices and catch numbers for the candidate run assuming Lorenzen M vector. Each panel is coded by age class, dots represent standardized residuals and lines a simple smoother. -->
+
+<!-- # ```{r bubble res LorenM, echo=FALSE, fig.height=5, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- # bubbles(res) -->
+<!-- # ``` -->
+<!-- # **Figure `r iFig=iFig+1;iFig`**. Bubble plot of standardized residuals for biomass indices and for catch numbers for the candidate run assuming Lorenzen M vector. -->
+## Diagnostics | candidate run assuming Lorenzen M vector
+
+```{r quantile res LorenM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+qqmath(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Quantile-quantile plot of standardized residuals for biomass indices and catch numbers for the candidate run assuming Lorenzen M vector. Each panel is coded by age class, dots represent standardized residuals and lines the normal distribution quantiles. -->
+
+## Diagnostics | candidate run assuming Lorenzen M vector
+```{r pred VS fit LorenM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+plot(fit9_L, stk_L)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Observed against fitted values by year and age for the candidate run assuming Lorenzen M vector. -->
+
+## Retrospective plot | candidate run assuming Lorenzen M vector
+
+```{r retro LorenM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=3, kfrac="missing", k, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk_L, idx_bio, k=17, srmodel= srmod1, qmodel = qmod2)
+plot(retro.lst)+theme(legend.position="none")
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Retrospective plot for the candidate run assuming Lorenzen M vector. -->
+
+\newpage
+
+## Discard run | assuming constant M
+
+<!-- Model estimates for the discard run assuming constant M are plotted in **Figures `r iFig+1` - `r iFig+2`**. -->
+
+```{r RUN disc, comment=NA, message=F, echo=F, warning=F}
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+qmod2 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1)
+fit9_disc <- sca(stk_disc, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod2)
+a4a.stk9_disc <- stk_disc + fit9_disc
+```
+
+```{r plot disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9_disc <- simulate(fit9_disc, 1000)
+a4a.stk9_disc_sim <- stk_disc + fits9_disc
+plot(FLStocks(catch_obs = stk, fit = a4a.stk9_disc_sim))+theme(legend.position="none")
+
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimated time series for the discard run assuming constant M. Blue shaded areas represent the 80% estimated credible intervals, catch observations are presented in red line.\ -->
+
+## Discard run | assuming constant M - harvest
+
+```{r harvest disc, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk9_disc)), drape = TRUE,
+          screen = list(x = -90, y=-45), zlab = 'F',
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100))
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimates of harvest by age and year for the discard run assuming constant M.\ -->
+
+\newpage
+
+## Diagnostics | Discards candidate run assuming constant M
+
+<!-- Diagnostics plots for the discard run assuming constant M are shown in **Figures `r iFig+1` - `r iFig+4`** -->
+
+```{r std res disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit9_disc, stk_disc, idx_bio)
+plot(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Standardized residuals for biomass indices and catch numbers for the discard run assuming constant M. Each panel is coded by age class, dots represent standardized residuals and lines a simple smoother. -->
+
+<!-- # ```{r bubble res disc, echo=FALSE, fig.height=5, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- # bubbles(res) -->
+<!-- # ``` -->
+<!-- # **Figure `r iFig=iFig+1;iFig`**. Bubble plot of standardized residuals for biomass indices and for catch numbers for the discard run assuming constant M. -->
+
+## Diagnostics | Discards candidate run assuming constant M
+```{r quantile res disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+qqmath(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Quantile-quantile plot of standardized residuals for biomass indices and catch numbers for the discard run assuming constant M. Each panel is coded by age class, dots represent standardized residuals and lines the normal distribution quantiles. -->
+
+## Diagnostics | Discards candidate run assuming constant M
+```{r pred VS fit disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+plot(fit9_disc, stk_disc)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Observed against fitted values by year and age for the discard run assuming constant M. -->
+
+\newpage
+
+## Retrospective plot | the discard run assuming constant M
+
+```{r retro disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=3, kfrac="missing", k, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk_disc, idx_bio, k=17, srmodel= srmod1, qmodel = qmod2)
+plot(retro.lst)+theme(legend.position="none")
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Retrospective plot for the discard run assuming constant M.\ -->
+
+\newpage
+
+## Discard run | assuming Lorenzen M vector
+
+<!-- Model estimates for the discard run assuming Lorenzen M are plotted in **Figures `r iFig+1` - `r iFig+2`**. -->
+
+```{r RUN disc-Lorenzen, comment=NA, message=F, echo=F, warning=F}
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+qmod2 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1)
+fit9_disc_L <- sca(stk_disc_L, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod2)
+a4a.stk9_disc_L <- stk_disc_L + fit9_disc_L
+```
+
+```{r plot disc-Lorenzen, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9_disc_L <- simulate(fit9_disc_L, 1000)
+a4a.stk9_disc_L_sim <- stk_disc_L + fits9_disc_L
+plot(FLStocks(catch_obs = stk, fit = a4a.stk9_disc_L_sim))+theme(legend.position="none")
+
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimated time series for the discard run assuming Lorenzen M vector. Blue shaded areas represent the 80% estimated credible intervals, catch observations are presented in red line.\ -->
+
+## Discard run | assuming Lorenzen M vector - harvest
+```{r harvest disc-Lorenzen, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk9_disc_L)), drape = TRUE,
+          screen = list(x = -90, y=-45), zlab = 'F',
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100))
+```
+
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimates of harvest by age and year for the discard run assuming Lorenzen M vector.\ -->
+
+\newpage
+
+## Diagnostics | Discards with Lorenzen M candidate Run
+
+<!-- Diagnostics plots for the discard run assuming Lorenzen M vector are shown in **Figures `r iFig+1` - `r iFig+4`** -->
+
+```{r std res disc-Lorenzen, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit9_disc_L, stk_disc_L, idx_bio)
+plot(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Standardized residuals for biomass indices and catch numbers for the discard run assuming Lorenzen M vector. Each panel is coded by age class, dots represent standardized residuals and lines a simple smoother. -->
+
+<!-- ```{r bubble res disc-Lorenzen, echo=FALSE, fig.height=5, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- bubbles(res) -->
+<!-- ``` -->
+<!-- **Figure `r iFig=iFig+1;iFig`**. Bubble plot of standardized residuals for biomass indices and for catch numbers for the discard run assuming Lorenzen M vector. -->
+
+## Diagnostics | Discards with Lorenzen M candidate Run
+```{r quantile res disc_Lorenzen, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+qqmath(res)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Quantile-quantile plot of standardized residuals for biomass indices and catch numbers for the discard run assuming Lorenzen M vector. Each panel is coded by age class, dots represent standardized residuals and lines the normal distribution quantiles. -->
+
+## Diagnostics | Discards with Lorenzen M candidate Run
+```{r pred VS fit disc-Lorenzen, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+plot(fit9_disc_L, stk_disc_L)
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Observed against fitted values by year and age for the discard run assuming Lorenzen M vector. -->
+
+\newpage
+
+## Retrospective plot | the discard run assuming Lorenzen M vector
+
+```{r retro disc-Lorenzen, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=3, kfrac="missing", k, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk_disc_L, idx_bio, k=17, srmodel= srmod1, qmodel = qmod2)
+plot(retro.lst)+theme(legend.position="none")
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. Retrospective plot for the discard run assuming Lorenzen M vector.\ -->
+
+## All runs
+
+<!-- Estimated time series for the four different runs are presented in the **Figure `r iFig+1`** -->
+
+```{r plot stocks, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9 <- simulate(fit9, 1000)
+a4a.stk9_sim <- stk + fits9
+
+fits9_L <- simulate(fit9_L, 1000)
+a4a.stk9_L_sim <- stk_L + fits9_L
+
+fits9_disc <- simulate(fit9_disc, 1000)
+a4a.stk9_disc_sim <- stk_disc + fits9_disc
+
+fits9_disc_L <- simulate(fit9_disc_L, 1000)
+a4a.stk9_disc_L_sim <- stk_disc_L + fits9_disc_L
+
+plot(FLStocks(Constant_M = a4a.stk9_sim, 
+              Lorenzen_M = a4a.stk9_L_sim, 
+              Discards = a4a.stk9_disc_sim,
+              Disc_Lor_M = a4a.stk9_disc_L_sim))
+
+# plot(FLStocks(Constant_M = a4a.stk9, Lorenzen_M = a4a.stk9_L, Discards = a4a.stk9_disc))
+```
+
+## Terminal values
+```{r terminal values, include=FALSE}
+term_df <- data.frame(values = c('Fbar', 'Recruitment','SSB','Catch'),
+                      constantM = c(format(fbar(a4a.stk9)[[34]],scientific = FALSE), 
+                                    format(rec(a4a.stk9)[[34]], scientific = FALSE),
+                                    format(ssb(a4a.stk9)[[34]], scientific = FALSE),
+                                    format(catch(a4a.stk9)[[34]],scientific = FALSE)),
+                      LorenzenM = c(format(fbar(a4a.stk9_L)[[34]],scientific = FALSE), 
+                                    format(rec(a4a.stk9_L)[[34]], scientific = FALSE),
+                                    format(ssb(a4a.stk9_L)[[34]], scientific = FALSE),
+                                    format(catch(a4a.stk9_L)[[34]],scientific = FALSE)),
+                      Disc_constM = c(format(fbar(a4a.stk9_disc)[[34]],scientific = FALSE), 
+                                    format(rec(a4a.stk9_disc)[[34]], scientific = FALSE),
+                                    format(ssb(a4a.stk9_disc)[[34]], scientific = FALSE),
+                                    format(catch(a4a.stk9_disc)[[34]],scientific = FALSE)),
+                      Disc_LorenM = c(format(fbar(a4a.stk9_disc_L)[[34]],scientific = FALSE), 
+                                    format(rec(a4a.stk9_disc_L)[[34]], scientific = FALSE),
+                                    format(ssb(a4a.stk9_disc_L)[[34]], scientific = FALSE),
+                                    format(catch(a4a.stk9_disc_L)[[34]],scientific = FALSE))
+)
+
+```
+
+```{r echo=FALSE}
+kable(term_df)
+```
+
+<!-- **Table `r iTab=iTab+1;iTab`**. GCV scores for the four different runs: -->
+<!-- ```{r GCV scores, echo=FALSE} -->
+<!-- GCV = data.frame(score='GCV', -->
+<!--                  Constant_M = fitSumm(fit9)[5], -->
+<!--                  Lorenzen_M = fitSumm(fits9_L)[5], -->
+<!--                  Discards = fitSumm(fit9_disc)[5], -->
+<!--                  Discards_Lorenzen = fitSumm(fits9_disc_L)[5]) -->
+<!-- kable(GCV) -->
+<!-- ``` -->
+
+\newpage
+
+## Reference Points
+
+<!-- The four different runs of the a4a model were used to calculate reference points based on yield per recruit analysis. A Beverton Holt Stock Recruitment relationship was assumed. iven the lack of sufficient data for a proper fit an empirical relationship with high steepness value was developed. The equilibrium curves are presented in **Figures `r iFig+1` - `r iFig+4`**, for each different run and the reference points values are presented in **Tables `r iTab+1` - `r iTab+4`** -->
+
+<!-- ## Candidate run | assuming constant M -->
+```{r reference points constM, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+##### Reference points
+
+landings.n(a4a.stk9)<-catch.n(a4a.stk9)
+landings.wt(a4a.stk9_L)<-catch.wt(a4a.stk9)
+landings(a4a.stk9)<-catch(a4a.stk9)
+discards(a4a.stk9)<-0
+discards.n(a4a.stk9)<-0
+discards.wt(a4a.stk9)<-0
+
+model = "bevholt"
+srr <- fmle(as.FLSR(a4a.stk9, model = model),control=list(trace=0),fixed=list(b=100))
+brp <- brp(FLBRP(a4a.stk9, sr = srr))
+ref_points<- refpts(brp)
+```
+
+
+<!-- **Table `r iTab=iTab+1;iTab`**. Reference points for candidate run assuming constant M.\ -->
+```{r refpoints constM, warning=FALSE, comment=FALSE, include=FALSE, results='asis'}
+ref_points_df <- as.data.frame(ref_points[c('f0.1','msy','virgin','spr.30'),
+                                          c('harvest', 'yield','rec','ssb','biomass')])
+ref_points_df <- ref_points_df[,c(1,2,4)]
+ref_points_df <- reshape2::dcast(ref_points_df, refpt~quant)
+```
+
+<!-- ```{r refpoints constM table, echo=FALSE, results='asis', warning=FALSE, comment=FALSE} -->
+<!-- kable(ref_points_df) -->
+<!-- ``` -->
+
+<!-- ## Candidate run | assuming constant M -->
+
+<!-- ```{r plot ref points constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- plot(brp, obs = T) -->
+<!-- ``` -->
+<!-- **Figure `r iFig=iFig+1;iFig`**. Equilibrium curves for candidate run assuming constant M. Relationship between SSB and F, recruitment and F, yield and F and SSB at equilibrium -->
+
+\newpage
+
+<!-- ## Candidate run | assuming Lorenzen M vector -->
+
+```{r reference points LorenM, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+
+landings.n(a4a.stk9_L)<-catch.n(a4a.stk9_L)
+landings.wt(a4a.stk9_L)<-catch.wt(a4a.stk9_L)
+landings(a4a.stk9_L)<-catch(a4a.stk9_L)
+discards(a4a.stk9_L)<-0
+discards.n(a4a.stk9_L)<-0
+discards.wt(a4a.stk9_L)<-0
+
+model = "bevholt"
+srr_L <- fmle(as.FLSR(a4a.stk9_L, model = model),control=list(trace=0),fixed=list(b=100))
+brp_L <- brp(FLBRP(a4a.stk9_L, sr = srr_L))
+ref_points_L<- refpts(brp_L)
+```
+
+<!-- **Table `r iTab=iTab+1;iTab`**. Reference points for candidate run assuming Lorenzen M vector.\ -->
+
+```{r refpoints LorenM, warning=FALSE, comment=FALSE, include=FALSE, results='asis'}
+ref_points_df <- as.data.frame(ref_points_L[c('f0.1','msy','virgin','spr.30'),
+                                          c('harvest', 'yield','rec','ssb','biomass')])
+ref_points_df <- ref_points_df[,c(1,2,4)]
+ref_points_df <- reshape2::dcast(ref_points_df, refpt~quant)
+```
+
+<!-- ```{r refpoints LorenM table, echo=FALSE, results='asis', warning=FALSE, comment=FALSE} -->
+<!-- kable(ref_points_df) -->
+<!-- ``` -->
+
+<!-- ## Candidate run | assuming Lorenzen M vector -->
+
+<!-- ```{r plot ref points LorenM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- plot(brp_L, obs = T) -->
+<!-- ``` -->
+<!-- **Figure `r iFig=iFig+1;iFig`**. Equilibrium curves for candidate run assuming Lorenzen M vector. Relationship between SSB and F, recruitment and F, yield and F and SSB at equilibrium -->
+
+\newpage
+
+<!-- ## Discards run | assuming constant M -->
+
+```{r reference points disc, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+
+landings.n(a4a.stk9_disc)<-catch.n(a4a.stk9_disc)
+landings.wt(a4a.stk9_disc)<-catch.wt(a4a.stk9_disc)
+landings(a4a.stk9_disc)<-catch(a4a.stk9_disc)
+discards(a4a.stk9_disc)<-0
+discards.n(a4a.stk9_disc)<-0
+discards.wt(a4a.stk9_disc)<-0
+
+model = "bevholt"
+srr_disc <- fmle(as.FLSR(a4a.stk9_disc, model = model),control=list(trace=0),fixed=list(b=100))
+brp_disc <- brp(FLBRP(a4a.stk9_disc, sr = srr_disc))
+ref_points_disc <- refpts(brp_disc)
+```
+
+<!-- **Table `r iTab=iTab+1;iTab`**. Reference points for discards run assuming constant M.\ -->
+```{r refpoints disc, message=FALSE, warning=FALSE, comment=FALSE, include=FALSE, results='asis'}
+ref_points_df <- as.data.frame(ref_points_disc[c('f0.1','msy','virgin','spr.30'),
+                                          c('harvest', 'yield','rec','ssb','biomass')])
+ref_points_df <- ref_points_df[,c(1,2,4)]
+ref_points_df <- reshape2::dcast(ref_points_df, refpt~quant)
+```
+
+<!-- ```{r refpoints disc table, echo=FALSE, message=FALSE, warning=FALSE, comment=FALSE, results='asis'} -->
+<!-- kable(ref_points_df) -->
+<!-- ``` -->
+
+<!-- ## Discards run | assuming constant M -->
+
+<!-- ```{r plot ref points disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- plot(brp_disc, obs = T) -->
+<!-- ``` -->
+<!-- **Figure `r iFig=iFig+1;iFig`**. Equilibrium curves for discards run assuming constant M. Relationship between SSB and F, recruitment and F, yield and F and SSB at equilibrium -->
+
+\newpage
+
+<!-- ## Discards run | assuming Lorenzen M vector -->
+
+```{r reference points disc-Loren, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+landings.n(a4a.stk9_disc_L)<-catch.n(a4a.stk9_disc_L)
+landings.wt(a4a.stk9_disc_L)<-catch.wt(a4a.stk9_disc_L)
+landings(a4a.stk9_disc_L)<-catch(a4a.stk9_disc_L)
+discards(a4a.stk9_disc_L)<-0
+discards.n(a4a.stk9_disc_L)<-0
+discards.wt(a4a.stk9_disc_L)<-0
+
+model = "bevholt"
+srr_disc_L <- fmle(as.FLSR(a4a.stk9_disc_L, model = model),
+                   control=list(trace=0),fixed=list(b=100))
+brp_disc_L <- brp(FLBRP(a4a.stk9_disc_L, sr = srr_disc_L))
+ref_points_disc_L <- refpts(brp_disc_L)
+```
+
+<!-- **Table `r iTab=iTab+1;iTab`**. Discards run assuming Lorenzen M vector. Reference points.\ -->
+```{r refpoints disc-Loren, message=FALSE, warning=FALSE, comment=FALSE, include=FALSE, results='asis'}
+ref_points_df <- as.data.frame(ref_points_disc_L[c('f0.1','msy','virgin','spr.30'),
+                                          c('harvest', 'yield','rec','ssb','biomass')])
+ref_points_df <- ref_points_df[,c(1,2,4)]
+ref_points_df <- reshape2::dcast(ref_points_df, refpt~quant)
+```
+
+<!-- # ```{r refpoints disc-Loren table, echo=FALSE, message=FALSE, warning=FALSE, comment=FALSE, results='asis'} -->
+<!-- # kable(ref_points_df) -->
+<!-- # ``` -->
+
+```{r ref total df, include=FALSE}
+tot_ref <- data.frame(value = c('FFmsy', 'FF0.1','BBmsy'),
+                      constantM = c(fbar(a4a.stk9)[[34]]/ref_points['msy','harvest'],
+                                    fbar(a4a.stk9)[[34]]/ref_points['f0.1','harvest'],
+                                    stock(a4a.stk9)[[34]]/ref_points['msy','biomass']),
+                      LorenzenM = c(fbar(a4a.stk9_L)[[34]]/ref_points['msy','harvest'],
+                                    fbar(a4a.stk9_L)[[34]]/ref_points['f0.1','harvest'],
+                                    stock(a4a.stk9_L)[[34]]/ref_points['msy','biomass']),
+                      Disc_constM = c(fbar(a4a.stk9_disc)[[34]]/ref_points['msy','harvest'],
+                                    fbar(a4a.stk9_disc)[[34]]/ref_points['f0.1','harvest'],
+                                    stock(a4a.stk9_disc)[[34]]/ref_points['msy','biomass']),
+                      Disc_LorenM = c(fbar(a4a.stk9_disc_L)[[34]]/ref_points['msy','harvest'],
+                                    fbar(a4a.stk9_disc_L)[[34]]/ref_points['f0.1','harvest'],
+                                    stock(a4a.stk9_disc_L)[[34]]/ref_points['msy','biomass'])
+                      )
+
+
+```
+
+```{r ref points table, echo=FALSE}
+kable(tot_ref)
+```
+
+
+<!-- ## Discards run | assuming Lorenzen M vector -->
+
+<!-- ```{r plot ref points disc-Loren, echo=FALSE, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- plot(brp_disc_L, obs = T) -->
+<!-- ``` -->
+<!-- **Figure `r iFig=iFig+1;iFig`**. Discards run assuming Lorenzen M vector. Equilibrium curves. Relationship between SSB and F, recruitment and F, yield and F and SSB at equilibrium -->
+
+<!-- ## Selectivity -->
+<!-- ```{r selectivity plots, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- sel <- as.data.frame(landings.sel(brp));sel$type <- "constant M" -->
+<!-- sel$data <- rescale(sel$data, to = c(0,1)) -->
+<!-- sel_L <- as.data.frame(landings.sel(brp_L));sel_L$type <- "Lorenzen M" -->
+<!-- sel_L$data <- rescale(sel_L$data, to = c(0,1)) -->
+<!-- sel_disc <- as.data.frame(landings.sel(brp_disc));sel_disc$type <- "Discards" -->
+<!-- sel_disc$data <- rescale(sel_disc$data, to = c(0,1)) -->
+<!-- sel_disc_L <- as.data.frame(landings.sel(brp_disc_L));sel_disc_L$type <- "Discards Lorenzen_M" -->
+<!-- sel_disc_L$data <- rescale(sel_disc_L$data, to = c(0,1)) -->
+
+<!-- sel_tot <- rbind(sel,sel_L,sel_disc,sel_disc_L) -->
+<!-- ggplot(aes(age,data), data = sel_tot) + geom_point() + geom_line()+ -->
+<!--   facet_wrap(~type)+geom_smooth(se=T) -->
+<!-- ``` -->
+<!-- **Figure `r iFig=iFig+1;iFig`**. Estimates of selectivity curves by age from the different model runs. -->
+
+# MCMC fit
+<!-- MCMC runs were conducted for the two candidate runs as an alternative to the maximum likelihood estimation (MLE) that is being used as a default estimation procedure in the assessment. Comparisons of the results between the two approaches are presented in the **Figures `r iFig+1` - `r iFig+2`**. In the **Tables `r iTab+1` - `r iTab+2`** the coverage of the confidence intervals of both SSB and F are presented, for the different values of the tuning parameter of the MCMC algorithm, mcprobe. In theory, acceptance rate should be around 0.3 - 0.4. -->
+
+<!-- ## MCMC | candidate run assuming constant M -->
+```{r MCMC constant M, include=FALSE}
+load("~/pCloudDrive/ICCAT/runs/a4a/MCMC/constant_M_MCMC.RData")
+```
+
+<!-- **Table `r iTab=iTab+1;iTab`**. Values of mcprobe, SSB CI coverage, F CI coverage and acceptance rate; mcprobe = 0.4 has the best compromise between acceptance rate and CI coverage. -->
+
+<!-- # ```{r MCMC table constant M, echo=FALSE, message=FALSE, warning=FALSE, comment=FALSE, results='asis'} -->
+<!-- # kable(mcmctest.df) -->
+<!-- # ``` -->
+
+## MCMC | candidate run assuming constant M
+
+```{r MCMC plot constant M, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+plot(FLStocks(MLE = a4a.stk9_sim, MCMC = aa.stk + fit40))
+```
+<!-- **Figure `r iFig=iFig+1;iFig`**. MCMC fit and MLE fit for the candidate run assuming constant M -->
+```{r save objects, echo=FALSE}
+save(a4a.stk9,a4a.stk9_disc,a4a.stk9_L,a4a.stk9_disc_L, 
+     file = "~/pCloudDrive/ICCAT/data/various_objects/a4a_prelim.RData")
+```
+
+<!-- ## MCMC | candidate run assuming Lorenzen M vector -->
+
+<!-- ```{r MCMC Lorenzen M, include=FALSE} -->
+<!-- load("~/pCloudDrive/ICCAT/runs/a4a/MCMC/Lorenzen_M_MCMC.RData") -->
+<!-- ``` -->
+
+<!-- <!-- **Table `r iTab=iTab+1;iTab`**. Values of mcprobe, SSB CI coverage, F CI coverage and acceptance rate; mcprobe = 0.2 has the best compromise between acceleration rate and CI coverage. --> -->
+
+<!-- ```{r MCMC table Lorenzen M, echo=FALSE, message=FALSE, warning=FALSE, comment=FALSE, results='asis'} -->
+<!-- kable(mcmctest.df) -->
+<!-- ``` -->
+
+<!-- ## MCMC | candidate run assuming Lorenzen M vector -->
+
+<!-- ```{r MCMC plot Lorenzen M, echo=FALSE, message=FALSE, warning=FALSE, comment=NA} -->
+<!-- plot(FLStocks(MLE = a4a.stk9_L_sim, MCMC = aa.stk + fit20)) -->
+<!-- ``` -->
+<!-- <!-- **Figure `r iFig=iFig+1;iFig`**. MCMC fit and MLE fit for the candidate run assuming Lorenzen M vector. --> -->
+
+<!-- # Discussion -->
+
+<!-- - In all four different runs the results for terminal years were quite similar. The inclusion of discards in both cases resulted in higher estimations of recruitment, especially in the early years, compared to the ones without the discards. All results seemed robust in terms of retrospective analysis. Residuals did not show any particular trend in all cases, but the absence of a tuning index for the late ages as well as the recruitment, led to some low residual values. The MCMC runs that conducted to test the two candidate models in uncertainty robustness gave pretty similar results. -->
+<!-- - There are some core differences between XSA assessment approach and a4a. The statistical basis of the a4a allows for more careful considerations of data quality and their impact on the uncertainty estimations. Catch-at-age matrices are not assumed without error, while annual variability in estimates of both age composition and survey indices can be included. In XSA catchability coefficient is assumed constant, whereas in a4a can vary over time. -->
+<!-- - Although catches have declined in the recent years and harvest rates are at lower levels than the previous decade, recruitment appears to follow declining trends. Therefore the robustness of reference points assuming in practice constant recruitment around the average of the entire time series is questionable. Given, that the model runs do not allow proper fit of a stock-recruitment relationship, it might be better to assume constant recruitment levels close to those observed in the last 10-15 years.  -->
+
+# References
+
+\hspace{0.2in}\vspace{0.2in}
+\setlength\parindent{-0.2in}
+<!-- \setlength{\parskip}{0.0in plus 0.0in} -->
+\setlength{\leftskip}{0.2in}
+
+Ernesto Jardim, Colin P. Millar, Iago Mosqueira, Finlay Scott, Giacomo Chato Osio, Marco Ferretti, Nekane Alzorriz, Alessandro Orio, What if stock assessment is as simple as a linear model? The a4a initiative, ICES Journal of Marine Science, Volume 72, Issue 1, January 2015, Pages 232–236, https://doi.org/10.1093/icesjms/fsu050
+
+Fournier, D.A., Skaug, H.J., Ancheta, J., Ianelli, J., Magnusson, A., Maunder, M.N., Nielsen, A., and Sibert, J. 2012. AD Model Builder: using automatic differentiation for statistical inference of highly parameterized complex nonlinear models. Optim. Methods Softw. 27:233-249.
+
+ICCAT, 2020. REPORT OF THE 2020 ICCAT INTERSESSIONAL MEETING OF THE SWORDFISH SPECIES GROUP. https://tinyurl.com/ycqfhjzl.
+
+L. T. Kell, I. Mosqueira, P. Grosjean, J-M. Fromentin, D. Garcia, R. Hillary, E. Jardim, S. Mardle, M. A. Pastoors, J. J. Poos, F. Scott, R. D. Scott, FLR: an open-source framework for the evaluation and development of management strategies, ICES Journal of Marine Science, Volume 64, Issue 4, May 2007, Pages 640–646, https://doi.org/10.1093/icesjms/fsm012
+
+R Core Team (2020). R: A language and environment for statistical computing. R Foundation for Statistical
+Computing, Vienna, Austria. URL http://www.R-project.org/
+
+SCRS 2020/021. UPDATED STANDARDIZED SWORDFISH CATCH RATES FROM THE GREEK SURFACE LONGLINE FISHERIES OPERATING IN THE E. MEDITERRANEAN.
+
+SCRS 2020/026. UPDATED CATCH RATES OF SWORDFISH *(XIPHIAS GLADIUS)* CAUGHT BY THE MOROCCAN LONGLINE FLEET IN THE MEDITERRANEAN SEA, 2012-2019
+
+SCRS 2020/027. AN UPDATE OF THE SWORDFISH FISHERY IN THE LIGURIAN SEA (WESTERN MEDITERRANEAN) WITH A PRELIMINARY ATTEMPT TO STANDARDIZE THE MESOPELAGIC LONGLINE CPUEs.
+
+# References
+
+SCRS 2020/028. ESTIMATION OF UNDERSIZED MEDITERRANEAN SWORDFISH *(Xiphias gladius)* CATCHES BETWEEN 2008 – 2018 FOR THE LONGLINE MAIN FLEETS.
+
+SCRS 2020/043. Standardized Catch Rates for the Mediterranean Swordfish (*Xiphias gladius* Linnaeus, 1758) from the Spanish Longline Fishery. 1988-2018.
+
+Tserpes, G., Peristeraki, P., Di Natale, A., Mangano, A. 2011. Analysis of swordfish (Xiphias gladius) catch rates in the central-eastern Mediterranean. Collect. Vol. Sci. Pap. ICCAT, 66(4): 1495-1505.
+
+Wood, S.N. (2003) Thin-plate regression splines. Journal of the Royal Statistical Society (B) 65(1):95-114.

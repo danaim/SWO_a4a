@@ -1,0 +1,399 @@
+---
+title: Final Assessment Runs using a4a
+author: "D. Mantopoulou-Palouka and G. Tserpes"
+output:
+  ioslides_presentation:
+    smaller: yes
+    widescreen: yes
+  html_document:
+    df_print: paged
+  beamer_presentation: default
+---
+
+<style>
+.forceBreak { -webkit-column-break-after: always; break-after: column; }
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, out.height = "90%")
+rm(list = ls())
+library(reshape2)
+library(readxl)
+# library(FLXSA)
+library(ggplot2)
+library(ggplotFL)
+library(FLCore)
+library(mixdist)
+library(plyr)
+library(data.table)
+library(dplyr)
+library(FLa4a)
+library(FLEDA)
+library(FLAssess)
+library(FLash)
+library(FLBRP) 
+library(kobe)
+library(knitr)
+library(scales)
+library(ggthemes);theme_set(theme_bw())
+setwd("~/pCloudDrive/ICCAT/runs/a4a")
+load("~/pCloudDrive/ICCAT/data/swom_mixed_data_bioIndexes_corrected_2008.rda")
+iFig=0
+iTab=0
+
+
+### Stock object
+stk <- swom
+
+### Index object
+idx <- u
+
+### Stock object with discards
+load("~/pCloudDrive/ICCAT/data/swom_mixed_data_bioIndexes_dsc.rda")
+stk_disc <- swom
+
+### set the units
+units(landings(stk)) <- units(landings(stk_disc)) <-"t"
+units(catch(stk)) <- units(catch(stk_disc)) <- "t"
+units(catch.n(stk)) <- units(catch.n(stk_disc)) <- ""
+units(catch.wt(stk)) <- units(catch.wt(stk_disc)) <- "t"
+units(stock.n(stk)) <- units(stock.n(stk_disc)) <- ""
+units(stock.wt(stk)) <- units(stock.wt(stk_disc)) <- "t"
+units(mat(stk)) <- units(mat(stk_disc)) <- ""
+units(m(stk)) <- units(m(stk_disc)) <- "m"
+units(harvest(stk)) <- units(harvest(stk_disc)) <- "f"
+
+# catch.n(stk)[catch.n(stk_disc) == 0] <- 0.1
+
+range(stk, c("minfbar", "maxfbar")) = c(2, 4)
+range(stk_disc, c("minfbar", "maxfbar")) = c(2, 4)
+
+### Biomass index
+idx <- u
+summary(idx)
+
+idx_bio <- FLIndices()
+
+for (i in 1:length(idx)) {
+  dms <- list(age="all", year=range(idx[[i]])["minyear"]:range(idx[[i]])["maxyear"])
+  idx_bio[[i]] <- FLIndexBiomass(FLQuant(NA, dimnames=dms))
+  index(idx_bio[[i]]) <- quantSums(index(idx[[i]]))
+}
+
+names(idx_bio) <- names(idx)
+
+
+for(i in 1:length(idx_bio)) {
+  range(idx_bio[[i]],c("startf","endf")) = c(0,1)
+  range(idx_bio[[i]],c("min","max")) = c(2,4)
+  units(index(idx_bio[[i]])) <- ""
+}
+
+
+lig_sur <- read_xlsx("~/pCloudDrive/ICCAT/data/indices.xlsx")
+lig_sur <- lig_sur[,c(1,13)]
+names(lig_sur) <- c('year', 'LIG_SUR')
+lig_sur <- lig_sur[complete.cases(lig_sur), ]
+
+dms <- list(age="all", year=min(lig_sur$year):max(lig_sur$year))
+
+index_lig <- FLQuant(lig_sur$LIG_SUR,dimnames = dms)
+lig_sur_idx <- FLIndexBiomass(FLQuant(NA, dimnames=dms))
+index(lig_sur_idx) <- index_lig
+range(lig_sur_idx,c("startf","endf")) = c(0,1)
+range(lig_sur_idx,c("min","max")) = c(2,4)
+units(index(lig_sur_idx)) <- ""
+
+idx_bio[[6]] <- lig_sur_idx
+names(idx_bio) <- c("GR_LL","SP_LL","MO_LL","LI_LL","SI_LL" ,"LI_SUR")
+
+
+### Trim the stocks
+stk <- trim(stk, year = 1985:2018)
+stk_disc <- trim(stk_disc, year = 1985:2018)
+
+### Set plus group
+stk <- setPlusGroup(stk, 5)
+stk_disc <- setPlusGroup(stk_disc, 5)
+
+```
+## Data input for the assessment
+
+### Catch Data
+- Catch-at-age data since 1985
+- plus group 5
+- fbar at 2 - 4
+
+### CPUE Data
+
+- Six standardized CPUE series
+
+    - Greek longliners since 1987
+    - Moroccan longliners since 2012
+    - Spanish longliners since 1988
+    - Ligurian longliners since 2010
+    - Sicilian longliners from 1991 to 2009
+    - Ligurian surface longliners 1991 to 2009
+    
+- Representative of age groups 2 - 4
+
+## CPUE indices
+
+```{r index plot, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+## index plots
+plot_idx <- as.data.frame(idx_bio)
+
+ggplot(aes(year, data), data = plot_idx[plot_idx$slot == 'index',c(1,3,8,9)]) +
+  geom_line(stat = 'identity')+ facet_grid(cname ~.)+ggtitle("Time series of standardized CPUE indices")
+```
+
+
+## Final runs
+
+- Two final runs were considered:
+
+    - one with constant M 
+    - one with constant M including estimated Discards
+
+- Models specifications kept the same:
+    
+    - for $F$, $R$, $\mathbf{\sigma^2}$, $\tau^{2}_{s}$ and $N_{1}$
+
+    - Q model altered according to the new CPUE index:
+    
+$$  
+Q : 
+     \begin{cases}
+       \sim 1, &\quad \text{Greek longline}\\
+       \sim 1, &\quad \text{Spanish longline}\\
+       \sim s(year, k=3), &\quad \text{Moroccan longline}\\
+       \sim s(year, k=3), &\quad \text{Ligurian longline}\\
+       \sim 1, &\quad \text{Sicilian longline}\\
+       \sim s(year, k=9), &\quad \text{Ligurian surface longline}\\
+     \end{cases}
+$$
+
+
+## final run | assuming constant M
+
+```{r RUN constM, comment=NA, message=F, echo=F, warning=F}
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+srmod2 <- ~bevholt(CV = 0.2)
+qmod3 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~s(year, k = 9))
+fit9 <- sca(stk, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod3)
+a4a.stk9 <- stk + fit9
+```
+
+```{r plot constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9 <- simulate(fit9, 1000)
+a4a.stk9_sim <- stk + fits9
+plot(a4a.stk9_sim)
+```
+
+
+
+## Diagnostics | final run assuming constant M
+
+```{r res}
+res <- residuals(fit9, stk, idx_bio)
+res_Df <- as.data.frame(res)
+res_Df <- res_Df[,c(1,2,7,8)]
+```
+
+Standardized residuals of the catch numbers by age
+```{r std res constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+ggplot(aes(year,data), data = res_Df[res_Df$qname == "catch.n",]) + geom_point() + facet_wrap(age ~.) + geom_smooth()
+```
+
+## Diagnostics | final run assuming constant M
+
+Standardized residuals of the CPUE series
+```{r std res idx constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+ggplot(aes(year,data), data = res_Df[res_Df$qname != "catch.n"&res_Df$qname != "catch",]) +
+  geom_point() + facet_wrap(qname ~.) + geom_smooth()
+
+```
+
+## Retrospective plot | final run assuming constant M
+
+```{r retro constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=2, kfrac="missing", k, k2, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    KZ <- unname(k2 - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    srmod <- substitute(~s(year, k = KZ), list(KZ=KZ))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    args$srmodel <- as.formula(srmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk, idx_bio, k=17, k2 = 15, qmodel = qmod3)
+plot(retro.lst)#+theme(legend.position="none")
+```
+
+## final run | assuming constant M discards included
+
+```{r Run constM discards, include=FALSE}
+############## Discards included and 6 CPUE indices ######################## 
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+# qmod2 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~1)
+qmod3 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~s(year, k = 9))
+fit9_disc <- sca(stk_disc, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod3)
+a4a.stk9_disc <- stk_disc + fit9_disc
+```
+
+```{r plot constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9_disc <- simulate(fit9_disc, 1000)
+a4a.stk9_disc_sim <- stk_disc + fits9_disc
+plot(a4a.stk9_disc_sim)
+```
+
+## Diagnostics | final run assuming constant M discards included
+
+```{r res disc}
+res <- residuals(fit9_disc, stk_disc, idx_bio)
+res_Df <- as.data.frame(res)
+res_Df <- res_Df[,c(1,2,7,8)]
+```
+
+Standardized residuals of the catch numbers by age
+```{r std res constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+ggplot(aes(year,data), data = res_Df[res_Df$qname == "catch.n",]) + geom_point() + facet_wrap(age ~.) + geom_smooth()
+```
+
+## Diagnostics | final run assuming constant M discards included
+
+Standardized residuals of the CPUE series
+```{r std res idx constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+ggplot(aes(year,data), data = res_Df[res_Df$qname != "catch.n"&res_Df$qname != "catch",]) +
+  geom_point() + facet_wrap(qname ~.) + geom_smooth()
+```
+
+## Retrospective plot | final run assuming constant M discards included
+
+```{r retro constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=2, kfrac="missing", k, k2, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    KZ <- unname(k2 - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    srmod <- substitute(~s(year, k = KZ), list(KZ=KZ))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    args$srmodel <- as.formula(srmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk_disc, idx_bio, k=17, k2 = 15, qmodel = qmod3)
+plot(retro.lst)#+theme(legend.position="none")
+```
+
+
+## Comparison plot
+
+```{r reference points constM, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+##### Reference points
+
+landings.n(a4a.stk9)<-catch.n(a4a.stk9)
+landings.wt(a4a.stk9)<-catch.wt(a4a.stk9)
+landings(a4a.stk9)<-catch(a4a.stk9)
+discards(a4a.stk9)<-0
+discards.n(a4a.stk9)<-0
+discards.wt(a4a.stk9)<-0
+
+model = "bevholt"
+srr <- fmle(as.FLSR(a4a.stk9, model = model),control=list(trace=0),fixed=list(b=100))
+brp <- brp(FLBRP(a4a.stk9, sr = srr))
+ref_points<- refpts(brp)
+```
+
+```{r reference points disc, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+
+landings.n(a4a.stk9_disc)<-catch.n(a4a.stk9_disc)
+landings.wt(a4a.stk9_disc)<-catch.wt(a4a.stk9_disc)
+landings(a4a.stk9_disc)<-catch(a4a.stk9_disc)
+discards(a4a.stk9_disc)<-0
+discards.n(a4a.stk9_disc)<-0
+discards.wt(a4a.stk9_disc)<-0
+
+model = "bevholt"
+srr_disc <- fmle(as.FLSR(a4a.stk9_disc, model = model),control=list(trace=0),fixed=list(b=100))
+brp_disc <- brp(FLBRP(a4a.stk9_disc, sr = srr_disc))
+ref_points_disc <- refpts(brp_disc)
+```
+
+```{r ref total df, include=FALSE}
+tot_ref <- data.frame(value = c('Fmsy','Bmsy','F2018','SSB','FFmsy','FF0.1','BBmsy'),
+                      constantM = c(ref_points['msy','harvest'],
+                                    ref_points['msy','biomass'],
+                                    fbar(a4a.stk9)[[34]],
+                                    ssb(a4a.stk9)[[34]],
+                                    fbar(a4a.stk9)[[34]]/ref_points['msy','harvest'],
+                                    fbar(a4a.stk9)[[34]]/ref_points['f0.1','harvest'],
+                                    stock(a4a.stk9)[[34]]/ref_points['msy','biomass']),
+                      Disc_constM = c(ref_points_disc['msy','harvest'],
+                                    ref_points_disc['msy','biomass'],
+                                    fbar(a4a.stk9_disc)[[34]],
+                                    ssb(a4a.stk9_disc)[[34]],
+                                    fbar(a4a.stk9_disc)[[34]]/ref_points_disc['msy','harvest'],
+                                    fbar(a4a.stk9_disc)[[34]]/ref_points_disc['f0.1','harvest'],
+                                    stock(a4a.stk9_disc)[[34]]/ref_points_disc['msy','biomass'])
+                      )
+
+
+```
+
+```{r plot stocks, echo=FALSE}
+plot(FLStocks(Constant_M = a4a.stk9_sim, 
+              Discards = a4a.stk9_disc_sim))
+```
+
+<p class="forceBreak"></p>
+
+## Reference points
+
+```{r ref points table, echo=FALSE}
+kable(tot_ref)
+```
+
+
+## MCMC | constant M
+
+```{r MCMC constant}
+load("~/pCloudDrive/ICCAT/runs/a4a/MCMC/final_constM.RData")
+plot(FLStocks(MLE = a4a.stk9_sim, MCMC = aa.stk + fit20))
+```
+
+## MCMC | constant M discards included
+
+```{r MCMC constant discards}
+load("~/pCloudDrive/ICCAT/runs/a4a/MCMC/final_constM_disc.RData")
+plot(FLStocks(MLE = a4a.stk9_disc_sim, MCMC = aa.stk + fit40))
+```

@@ -1,0 +1,288 @@
+---
+title: "a4a preliminary runs"
+author: "Danai Mantopoulou - Palouka"
+date: "04/05/2020"
+output:
+  ioslides_presentation:
+    smaller: yes
+    widescreen: yes
+  html_document:
+    df_print: paged
+---
+
+<!---\vspace{2cm}
+<!---\centering-->
+<!---\raggedright-->
+<!---\tableofcontents-->
+<!---\pagenumbering{gobble}-->
+<!---\newpage-->
+\pagenumbering{arabic}
+
+
+```{r, echo=FALSE, message=FALSE,warning=FALSE, comment=NA}
+library(reshape2)
+library(FLXSA)
+library(ggplot2)
+library(ggplotFL);theme_set(theme_bw())
+library(FLCore)
+library(mixdist)
+library(reshape2)
+library(plyr)
+library(data.table)
+library(dplyr)
+library(FLa4a)
+library(FLEDA)
+library(FLAssess)
+library(FLash)
+library(FLBRP) 
+rm(list=ls())
+# my.dir <- "P:/ICCAT/data/runs/a4a"
+# setwd(my.dir)
+
+setwd("~/pCloudDrive/ICCAT/runs/a4a")
+load("~/pCloudDrive/ICCAT/data/swom_mixed_data_bioIndexes_corrected_2008.rda")
+
+iFig=0
+```
+# Introduction
+The a4a method utilizes catch-at-age data to derive estimates of historical population size and fishing mortality. However, unlike XSA, model parameters estimated using catch-at-age analysis are done so by working forward in time and analyses do not require the assumption that removals from the fishery are known without error.
+The stock assessment model framework is a non-linear catch-at-age model implemented in R and FLR, and using ADMB that can be applied rapidly to a wide range of situations with low parametrization requirements. The model structure is defined by submodels, which are the different parts that require structural assumptions. There are 5 submodels in operation: 
+
+<ul>
+<li>a model for F-at-age</li> 
+<li>a model for the initial age structure </li>
+<li>a model for recruitment </li>
+<li>a (list) of model(s) for abundance/biomass indices catchability-at-age </li>
+<li>and a list of models for the observation variance of catch-at-age and abundance/biomass indices. </li>
+</ul>
+
+The submodels form use linear models. This opens the possibility of using the linear modelling tools available in R: see for example the mgcv (http://cran.r-project.org/web/packages/mgcv/index.html) gam formulas, or factorial design formulas using.
+
+# Materials and Methods
+The statistical catch-at-age was conducted using using the FLa4a package in R (part of the FLR-project, Kell et al., 2007; http://www.flr-project.org/). 
+
+[...]
+
+The available CAS data covered the period 1985-2018 and the catch at age (CAA) data were generated using a deterministic age slicing. The available CAS did not justify splitting CAS into ages greater than 6 and in line with the previous assessment XSA runs were conducted with a plus group of 6. As in 2016 continuity assessment,]...] natural mortality was assumed to equal 0.2 for all ages and years. In the 2016 assessment it was assumed that fish first mature at age 3 (when 50% are mature) and are fully mature at older ages. Considering new information (ICCAT 2020), it was currently assumed 15% and 65% maturation at ages 2 and 3 respectively. Full maturity was considered from age 4 onwards. Weights-at-age were derived from the mixture analysis and were consistent with the CAA. Figures 1 and 2 illustrate the available CAA data by age and year.
+
+Five standardized CPUE series were considered: Greek longliners (SCRS 2020/021), Moroccal longliners (SCRS 2020/026),  Spanish longliners (SCRS 2020/043), Ligurian longliners (...) and Sicilian longliners (...) . The standardized CPUE biomass indices were considered to be representative of the 1-3 age-group abundances. Fleet catchability was assumed to be independent of year-class size for all terminal years. 
+
+```{r prepare data, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+
+# Prepare stk
+stk <- swom
+summary(stk)
+
+## set the units
+units(landings(stk)) <- "t"
+units(catch(stk)) <- "t"
+units(catch.n(stk)) <- "numbers"
+units(catch.wt(stk)) <- "t"
+units(stock.n(stk)) <- "numbers"
+units(stock.wt(stk)) <- "t"
+units(mat(stk)) <- ""
+units(m(stk)) <- "m"
+units(harvest(stk)) <- "f"
+
+catch.n(stk)[catch.n(stk) == 0] <- 0.1
+
+range(stk, c("minfbar", "maxfbar")) = c(1, 3)
+
+stk <- trim(stk, year = 1987:2018)
+
+# Biomass index
+idx <- u
+
+idx_bio <- FLIndices()
+
+for (i in 1:length(idx)) {
+  dms <- list(age="all", year=range(idx[[i]])["minyear"]:range(idx[[i]])["maxyear"])
+  idx_bio[[i]] <- FLIndexBiomass(FLQuant(NA, dimnames=dms))
+  index(idx_bio[[i]]) <- quantSums(index(idx[[i]]))
+}
+
+names(idx_bio) <- names(idx)
+
+
+for(i in 1:length(idx_bio)) {
+  range(idx_bio[[i]],c("startf","endf")) = c(0,1)
+  range(idx_bio[[i]],c("min","max")) = c(1,3)
+  units(index(idx_bio[[i]])) <- "t"
+}
+
+for(i in 1:length(idx)) {
+  range(idx[[i]],c("startf","endf")) = c(0,1)
+  range(idx[[i]],c("min","max")) = c(1,3)
+  units(index(idx[[i]])) <- ""
+}
+
+```
+
+# Data
+
+```{r caa data, echo=FALSE}
+plot(catch.n(swom))
+```
+**Figure `r iFig=iFig+1;iFig`**. Time series of catch-at-age.\
+
+```{r cpue plot, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+plot_idx <- as.data.frame(idx_bio)
+ggplot(aes(year, data), data = plot_idx[plot_idx$slot == 'index',c(1,3,8,9)]) +
+  geom_line(stat = 'identity')+ facet_grid(cname ~.)
+```
+**Figure `r iFig=iFig+1;iFig`**. Time series of biomass CPUEs.\
+
+# 1st trial
+
+## a4a submodel setup
+
+### fishing mortality at age
+
+$$F \sim s(year, k =20) + s(age, k = 5)$$
+```{r fmodel, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+fmod <-  ~s(year, k =20) + s(age, k = 5) 
+
+```
+### recruitment model
+
+$$ SR \sim factor(age) $$
+  
+
+
+### variance
+Assummed constant for the indices and effect on a age $\sim s(age, k = 3)$ for catch observations.
+
+
+```{r assessment, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+fit <- sca(stock = stk, indices = idx_bio, fmodel = fmod)
+a4a.stk <- stk + fit
+```
+
+
+## Results
+
+```{r plot results, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+plot(a4a.stk)
+
+```
+**Figure `r iFig=iFig+1;iFig`**. Assessment Results.\
+
+```{r plot results and obs, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+stks <- FLStocks(catch_obs = stk, assess = a4a.stk)
+plot(stks)
+```
+**Figure `r iFig=iFig+1;iFig`**. Assessment Results against observed catch.\
+
+```{r fishing mortality 3D graph, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+# Fishing mortality 3D
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk)), drape = TRUE,
+          main="Fishing mortality", screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "pink"))(100))
+```
+**Figure `r iFig=iFig+1;iFig`**. Fishing mortality 3D plot.\
+
+
+```{r fishing mortality bubble plot, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+# Fishing mortality 3D
+ggplot(as.data.frame(harvest(a4a.stk)))+
+  geom_point(aes(year,age,size=data))+
+  theme_bw()+theme(legend.position="none")+
+  scale_size_area(max_size=8,  guide="none") +
+  xlab("Year")+ylab("Age")+
+  scale_y_continuous(breaks=seq(0,8,2))+
+  theme_bw()
+```
+**Figure `r iFig=iFig+1;iFig`**. Fishing mortality bubble plot.\
+
+## Diagnostics
+
+```{r log residuals, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA, fig.height=7}
+res <- residuals(fit, stk, idx_bio)
+plot(res)
+```
+**Figure `r iFig=iFig+1;iFig`**. Log residuals against fitted values.\
+
+```{r fit vs caa, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA, fig.height=7}
+plot(fit, stk)
+```
+
+
+
+
+# 2nd trial
+Remove old index and smooth a little the f model
+
+## a4a submodel setup
+
+```{r}
+idx_bio2 = FLIndices(idx_bio[1],idx_bio[2],idx_bio[3],idx_bio[4])
+```
+### fishing mortality at age
+
+$$F \sim s(year, k = 15) + s(age, k = 5)$$
+```{r fmodel 2, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+fmod <-  ~s(year, k =15) + s(age, k = 5) 
+
+```
+### recruitment model
+
+$$ SR \sim factor(age) $$
+  
+
+
+### variance
+Assummed constant for the indices and effect on a age $\sim s(age, k = 3)$ for catch observations.
+
+
+```{r assessment 2, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+fit2 <- sca(stock = stk, indices = idx_bio2, fmodel = fmod)
+a4a.stk2 <- stk + fit2
+```
+
+
+## Results
+
+```{r plot results 2, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+plot(a4a.stk2)
+```
+**Figure `r iFig=iFig+1;iFig`**. Assessment Results 2nd run.\
+
+```{r plot results and obs 2, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+stks <- FLStocks(catch_obs = stk, assess1 = a4a.stk, assess2 = a4a.stk2)
+plot(stks)
+```
+**Figure `r iFig=iFig+1;iFig`**. Assessment Results against observed catch and 1st run.\
+
+
+```{r fishing mortality 2 3D graph, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+# Fishing mortality 3D
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk2)), drape = TRUE,
+          main="Fishing mortality", screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "pink"))(100))
+```
+**Figure `r iFig=iFig+1;iFig`**. Fishing mortality 3D plot.\
+
+
+```{r fishing mortality 2 bubble plot, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA}
+# Fishing mortality 3D
+ggplot(as.data.frame(harvest(a4a.stk2)))+
+  geom_point(aes(year,age,size=data))+
+  theme_bw()+theme(legend.position="none")+
+  scale_size_area(max_size=8,  guide="none") +
+  xlab("Year")+ylab("Age")+
+  scale_y_continuous(breaks=seq(0,8,2))+
+  theme_bw()
+```
+**Figure `r iFig=iFig+1;iFig`**. Fishing mortality bubble plot.\
+
+## Diagnostics
+
+```{r log residuals 2, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA, fig.height=7}
+res <- residuals(fit2, stk, idx_bio2)
+plot(res)
+```
+**Figure `r iFig=iFig+1;iFig`**. Log residuals against fitted values.\
+
+```{r fit vs caa 2, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA, fig.height=7}
+plot(fit2, stk)
+```

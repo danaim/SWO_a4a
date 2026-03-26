@@ -1,0 +1,9 @@
+\contentsline {section}{\numberline {1}Intro}{1}{section.1}%
+\contentsline {section}{\numberline {2}Materials and Methods}{1}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Data}{2}{subsection.2.1}%
+\contentsline {section}{\numberline {3}Results}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Full time series}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Diagnostics}{6}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Forcing f to be the same after age 4}{7}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Ad hoc replacement of \href {mailto:numbers@age}{\nolinkurl {numbers@age}} at year 2008 in age 5}{12}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Trimmed time series (from 1985)}{13}{subsection.3.5}%

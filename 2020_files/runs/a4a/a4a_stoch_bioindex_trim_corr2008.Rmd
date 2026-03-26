@@ -1,0 +1,282 @@
+---
+title: "a4a stochastic slice biomass index"
+author: John Doe
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo  = FALSE)
+rm(list = ls())
+library(reshape2)
+library(FLXSA)
+library(ggplot2)
+library(ggplotFL)
+library(FLCore)
+library(mixdist)
+library(plyr)
+library(data.table)
+library(dplyr)
+library(FLa4a)
+library(FLEDA)
+library(FLAssess)
+library(FLash)
+library(FLBRP) 
+library(kobe)
+library(ggthemes);theme_set(theme_bw())
+setwd("~/pCloudDrive/ICCAT/runs/a4a")
+load("~/pCloudDrive/ICCAT/data/swom_mixed_data_bioIndexes_corrected_2008.rda")
+iFig=0
+```
+
+
+# Data
+
+## Trimmed time series (from 1985)
+
+[...]
+
+
+```{r prepare data, include=FALSE}
+### Stock object
+stk <- swom
+
+### set the units
+units(landings(stk)) <- "t"
+units(catch(stk)) <- "t"
+units(catch.n(stk)) <- ""
+units(catch.wt(stk)) <- "t"
+units(stock.n(stk)) <- ""
+units(stock.wt(stk)) <- "t"
+units(mat(stk)) <- ""
+units(m(stk)) <- "m"
+units(harvest(stk)) <- "f"
+
+catch.n(stk)[catch.n(stk) == 0] <- NA
+
+range(stk, c("minfbar", "maxfbar")) = c(2, 4)
+
+### Biomass index
+idx <- u
+summary(idx)
+
+idx_bio <- FLIndices()
+
+for (i in 1:length(idx)) {
+  dms <- list(age="all", year=range(idx[[i]])["minyear"]:range(idx[[i]])["maxyear"])
+  idx_bio[[i]] <- FLIndexBiomass(FLQuant(NA, dimnames=dms))
+  index(idx_bio[[i]]) <- quantSums(index(idx[[i]]))
+}
+
+names(idx_bio) <- names(idx)
+
+
+for(i in 1:length(idx_bio)) {
+  range(idx_bio[[i]],c("startf","endf")) = c(0,1)
+  range(idx_bio[[i]],c("min","max")) = c(2,4)
+  units(index(idx_bio[[i]])) <- "t"
+}
+```
+
+```{r trim, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+stk <- trim(stk, year = 1985:2018)
+```
+
+
+```{r catch.n plot, echo=FALSE, fig.height=7, message=FALSE, warning=FALSE, comment=NA}
+### catch @ age
+plot(catch.n(stk))
+```
+**Figure `r iFig=iFig+1;iFig`**. Time series of catch-at-age.\
+
+```{r index plot, echo=FALSE, fig.height=7, message=FALSE, warning=FALSE, comment=NA}
+## index plots
+plot_idx <- as.data.frame(idx_bio)
+
+ggplot(aes(year, data), data = plot_idx[plot_idx$slot == 'index',c(1,3,8,9)]) +
+  geom_line(stat = 'identity')+ facet_grid(cname ~.)
+```
+**Figure `r iFig=iFig+1;iFig`**. Biomass indices.\
+
+```{r cohort consistency, echo=FALSE, fig.height=7, message=FALSE, warning=FALSE, comment=NA}
+temp <- FLIndices()
+dms <- list(age=range(stk)["min"]:range(stk)["max"], 
+            year=range(stk)["minyear"]:range(stk)["maxyear"])
+temp[[1]] <- FLIndex(FLQuant(NA, dimnames=dms))
+index(temp[[1]]) <- catch.n(stk)
+plot(temp[[1]], type="internal")
+
+```
+
+\newpage
+
+# Results fbar 2 - 4
+
+Simple separable factor model on F results in a possible not positive definite covariance matrix which is an indicator of overfitting. The same stands for the built in tensor model. Catchability model is held constant through the years.
+Absence of SR model gave an unresonable low recruitment (90.000). Some runs were tested by removing the spanish LLS, the results were almost identical.
+
+## Two "best" runs with a plus group of 6
+
+```{r stks object, echo=FALSE, warning=FALSE, comment=FALSE}
+stks <- FLStocks()
+nfit = 0
+```
+
+```{r fit1, echo=FALSE, warning=FALSE, comment=FALSE}
+fmod <- ~s(year, k = 17) + s(age, k = 3)
+srmod <- ~s(year, k = 15)
+fit1 <- sca(stk, idx_bio, fmodel = fmod, srmodel = srmod)
+a4a.stk1 <- stk + fit1
+nfit = nfit +1
+stks[[as.character(nfit)]] <- a4a.stk1
+```
+
+```{r plot fit 1, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+plot(a4a.stk1)
+```
+**Figure `r iFig=iFig+1;iFig`**. Results for fit `r nfit`. F model : `r paste0(fmod)`, SRmodel: `r paste0(srmod)`.\
+
+```{r fit2, echo=FALSE, warning=FALSE, comment=FALSE}
+fmod <- ~s(year, k = 17) + s(replace(age, age>4, 4), k = 3)
+srmod <- ~s(year, k = 15)
+fit2 <- sca(stk, idx_bio, fmodel = fmod, srmodel = srmod)
+a4a.stk2 <- stk + fit2
+nfit = nfit +1
+stks[[as.character(nfit)]] <- a4a.stk2
+```
+
+```{r plot fit 2, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+plot(a4a.stk2)
+```
+**Figure `r iFig=iFig+1;iFig`**. Results for fit `r nfit`. F model : `r paste0(fmod)`, SRmodel: `r paste0(srmod)`.\
+
+and the corresponding fishing mortalities:
+
+```{r fmort for fit1 fit2, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+c(wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk1)), drape = TRUE,
+          screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100)),
+  wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk2)), drape = TRUE,
+          screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100)))
+```
+**Figure `r iFig=iFig+1;iFig`**. Harvest for fit1 (left) and fit2(right).\
+
+## Diagnostics (bad fit in catch numbers in age 6)
+
+```{r res fit 1, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit1, stk, idx_bio)
+plot(res)
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals for fit 1.\
+
+```{r res fit 2, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit2, stk, idx_bio)
+plot(res)
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals for fit 2.\
+
+## Increase by one the knots on splines for age in fishing mortality model
+
+
+```{r fit3, echo=FALSE, warning=FALSE, comment=FALSE}
+fmod <- ~s(year, k = 17) + s(age, k = 4)
+srmod <- ~s(year, k = 15)
+fit3 <- sca(stk, idx_bio, fmodel = fmod, srmodel = srmod)
+a4a.stk3 <- stk + fit3
+nfit = nfit +1
+stks[[as.character(nfit)]] <- a4a.stk3
+```
+
+```{r plot fit 3, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+plot(a4a.stk3)
+```
+**Figure `r iFig=iFig+1;iFig`**. Results for fit `r nfit`. F model : `r paste0(fmod)`, SRmodel: `r paste0(srmod)`.\
+
+```{r fmort fit3,  echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk3)), drape = TRUE, screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100))
+```
+**Figure `r iFig=iFig+1;iFig`**. Fishing mortality for fit `r nfit`
+
+```{r res fit 3, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit3, stk, idx_bio)
+plot(res)
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals for fit 3.\
+
+```{r plot fit 123, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+plot(stks)
+```
+**Figure `r iFig=iFig+1;iFig`**. Results for the 3 fits.\
+
+## Set plus group 5.
+```{r}
+stk2 <- setPlusGroup(stk, 5)
+```
+
+
+```{r fit4, echo=FALSE, warning=FALSE, comment=FALSE}
+fmod <- ~s(year, k = 17) + s(age, k = 3)
+srmod <- ~s(year, k = 15)
+fit4 <- sca(stk2, idx_bio, fmodel = fmod, srmodel = srmod)
+a4a.stk4 <- stk2 + fit4
+nfit = nfit +1
+stks[[as.character(nfit)]] <- a4a.stk4
+```
+
+```{r plot fit 4, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+plot(a4a.stk4)
+```
+**Figure `r iFig=iFig+1;iFig`**. Results for fit `r nfit`. F model : `r paste0(fmod)`, SRmodel: `r paste0(srmod)`.\
+
+```{r fmort fit4,  echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk4)), drape = TRUE, screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100))
+```
+**Figure `r iFig=iFig+1;iFig`**. Fishing mortality for fit `r nfit`
+
+```{r res fit 4, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit4, stk2, idx_bio)
+plot(res)
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals for `r nfit`.\
+
+## same f after age 4
+
+```{r fit5, echo=FALSE, warning=FALSE, comment=FALSE}
+fmod <- ~s(year, k = 17) + s(replace(age, age>4, 4), k = 3)
+srmod <- ~s(year, k = 15)
+fit5 <- sca(stk2, idx_bio, fmodel = fmod, srmodel = srmod)
+a4a.stk5 <- stk2 + fit5
+nfit = nfit +1
+stks[[as.character(nfit)]] <- a4a.stk5
+```
+
+```{r plot fit 5, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+plot(a4a.stk5)
+```
+**Figure `r iFig=iFig+1;iFig`**. Results for fit `r nfit`. F model : `r paste0(fmod)`, SRmodel: `r paste0(srmod)`.\
+
+```{r fmort fit5,  echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+wireframe(data ~ age + year, data = as.data.frame(harvest(a4a.stk5)), drape = TRUE, screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "pink",'yellow'))(100))
+```
+**Figure `r iFig=iFig+1;iFig`**. Fishing mortality for fit `r nfit`
+
+```{r res fit 5, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+res <- residuals(fit5, stk2, idx_bio)
+plot(res)
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals for `r nfit`.\
+
+
+```{r plot fit 45, echo=FALSE, fig.height=4, message=FALSE, warning=FALSE, comment=NA}
+stks_gr5 <- FLStocks(catch_Obs = stk2, fit4 = stks[[4]], fit5 = stks[[5]])
+plot(stks_gr5)
+```
+**Figure `r iFig=iFig+1;iFig`**. Results for the fits with plus group 5.\

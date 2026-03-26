@@ -1,0 +1,334 @@
+---
+title: "a4a final runs - draft"
+author: "D. Mantopoulou-Palouka and G. Tserpes"
+date: "5/27/2020"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(FLa4a)
+library(ggplotFL);theme_set(theme_bw())
+library(knitr)
+library(FLBRP) 
+load("~/pCloudDrive/ICCAT/runs/a4a/MCMC/input4MCMC.RData")
+```
+
+## Data input for the assessment
+
+### Catch Data
+- Catch-at-age data since 1985
+- plus group 5
+- fbar at 2 - 4
+
+### CPUE Data
+
+- Six standardized CPUE series
+
+    - Greek longliners since 1987
+    - Moroccan longliners since 2012
+    - Spanish longliners since 1988
+    - Ligurian longliners since 2010
+    - Sicilian longliners from 1991 to 2009
+    - Ligurian surface longliners 1991 to 2009
+    
+- Representative of age groups 2 - 4
+
+## CPUE indices
+
+```{r index plot, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+## index plots
+plot_idx <- as.data.frame(idx_bio)
+
+p <-ggplot(aes(year, data), data = plot_idx[plot_idx$slot == 'index',c(1,3,8,9)]) +
+  geom_line(stat = 'identity')+ facet_grid(cname ~.)
+
+p
+
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig1.png")
+```
+
+\newpage
+
+## Model setup
+
+- Fishing mortality $\mathbf{F}$
+$$F: \quad \sim s(year, k = 17) + s(age, k = 3)$$
+- Recruitment $\mathbf{R}$
+$$R:\quad \sim s(year, k = 15)$$
+- catchability $\mathbf{Q}$
+
+$$  
+Q : 
+     \begin{cases}
+       \sim 1, &\quad \text{Greek longline}\\
+       \sim 1, &\quad \text{Spanish longline}\\
+       \sim s(year, k=3), &\quad \text{Moroccan longline}\\
+       \sim s(year, k=3), &\quad \text{Ligurian longline}\\
+       \sim 1, &\quad \text{Sicilian longline}\\
+       \sim s(year, k=9), &\quad \text{Ligurian surface longline}\\
+     \end{cases}
+$$
+
+- observation variance $\mathbf{\sigma^2}$ of the catches
+
+$$ \sigma^2 \sim s(age, k = 3)$$
+- variance of the indices 
+$$ \tau^{2}_{s} \sim 1,\quad \text{for all indices } s$$ 
+
+- initial age structure $\mathbf{N_1}$
+
+$$ N : \quad\sim s(age, k =3)$$ 
+
+## final run | assuming constant M
+
+```{r RUN constM, comment=NA, message=F, echo=F, warning=F}
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+srmod2 <- ~bevholt(CV = 0.2)
+qmod3 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~s(year, k = 9))
+fit9 <- sca(stk, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod3)
+a4a.stk9 <- stk + fit9
+```
+
+```{r plot constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9 <- simulate(fit9, 1000)
+a4a.stk9_sim <- stk + fits9
+p <- plot(a4a.stk9_sim)
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig2.png")
+```
+
+
+
+## Diagnostics | final run assuming constant M
+
+```{r res, include=FALSE}
+res <- residuals(fit9, stk, idx_bio)
+res_Df <- as.data.frame(res)
+res_Df <- res_Df[,c(1,2,7,8)]
+```
+
+Standardized residuals of the catch numbers by age
+
+```{r std res constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+p <- ggplot(aes(year,data), data = res_Df[res_Df$qname == "catch.n",]) + geom_point() + facet_wrap(age ~.) + geom_smooth()
+
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig4.png")
+```
+
+## Diagnostics | final run assuming constant M
+
+Standardized residuals of the CPUE series
+
+```{r std res idx constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+p<-ggplot(aes(year,data), data = res_Df[res_Df$qname != "catch.n"&res_Df$qname != "catch",]) +
+  geom_point() + facet_wrap(qname ~.) + geom_smooth()
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig5.png")
+```
+
+## Retrospective plot | final run assuming constant M
+
+```{r retro constM, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=2, kfrac="missing", k, k2, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    KZ <- unname(k2 - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    srmod <- substitute(~s(year, k = KZ), list(KZ=KZ))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    args$srmodel <- as.formula(srmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk, idx_bio, k=17, k2 = 15, qmodel = qmod3)
+p<-plot(retro.lst)+theme(legend.position="none")
+
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/task5_fig10.png")
+```
+
+## final run | assuming constant M discards included
+
+```{r Run constM discards, include=FALSE}
+############## Discards included and 6 CPUE indices ######################## 
+fmod2 <- ~s(year, k = 17) + s(age, k = 3)
+srmod1 <- ~s(year, k = 15)
+# qmod2 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~1)
+qmod3 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~s(year, k = 9))
+fit9_disc <- sca(stk_disc, idx_bio, fmodel = fmod2, srmodel = srmod1, qmodel = qmod3)
+a4a.stk9_disc <- stk_disc + fit9_disc
+```
+
+```{r plot constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+fits9_disc <- simulate(fit9_disc, 1000)
+a4a.stk9_disc_sim <- stk_disc + fits9_disc
+p<-plot(a4a.stk9_disc_sim)
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig3.png")
+
+```
+
+## Diagnostics | final run assuming constant M discards included
+
+```{r res disc, include=FALSE}
+res <- residuals(fit9_disc, stk_disc, idx_bio)
+res_Df <- as.data.frame(res)
+res_Df <- res_Df[,c(1,2,7,8)]
+```
+
+Standardized residuals of the catch numbers by age
+
+```{r std res constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+p <- ggplot(aes(year,data), data = res_Df[res_Df$qname == "catch.n",]) + geom_point() + facet_wrap(age ~.) + geom_smooth()
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig6.png")
+```
+
+## Diagnostics | final run assuming constant M discards included
+
+Standardized residuals of the CPUE series
+
+```{r std res idx constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+# standardized residuals
+p <- ggplot(aes(year,data), data = res_Df[res_Df$qname != "catch.n"&res_Df$qname != "catch",]) +
+  geom_point() + facet_wrap(qname ~.) + geom_smooth()
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig7.png")
+```
+
+## Retrospective plot | final run assuming constant M discards included
+
+```{r retro constM disc, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+retro <- function(stk, idxs, retro=2, kfrac="missing", k, k2, ...){
+  args <- list(...)
+  if(missing(kfrac)) kfrac <- 0.5
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x){
+    yr <- range(stk)["maxyear"] - x
+    args$stock <- window(stk, end=yr)
+    args$indices <- FLIndices(window(idxs, end=yr))
+    KY <- unname(k - floor(x*kfrac))
+    KZ <- unname(k2 - floor(x*kfrac))
+    # NOTE THIS HAS TO BE ADAPTED FOR THE MODEL USED  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    fmod <- substitute(~s(year, k = KY) + s(age, k = 3), list(KY=KY))
+    srmod <- substitute(~s(year, k = KZ), list(KZ=KZ))
+    # fmod <- substitute(~s(year, k = KY) + s(replace(age, age>4, 4), k = 3), list(KY=KY))
+    args$fmodel <- as.formula(fmod)
+    args$srmodel <- as.formula(srmod)
+    fit <- do.call("sca", args)
+    args$stock + fit
+  })
+  FLStocks(lst0)
+}
+retro.lst <- retro(stk_disc, idx_bio, k=17, k2 = 15, qmodel = qmod3)
+p<-plot(retro.lst)+theme(legend.position="none")
+
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/task5_fig11.png")
+```
+
+
+## Comparison plot
+
+```{r reference points constM, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+##### Reference points
+
+landings.n(a4a.stk9)<-catch.n(a4a.stk9)
+landings.wt(a4a.stk9)<-catch.wt(a4a.stk9)
+landings(a4a.stk9)<-catch(a4a.stk9)
+discards(a4a.stk9)<-0
+discards.n(a4a.stk9)<-0
+discards.wt(a4a.stk9)<-0
+
+model = "bevholt"
+srr <- fmle(as.FLSR(a4a.stk9, model = model),control=list(trace=0),fixed=list(b=100))
+brp <- brp(FLBRP(a4a.stk9, sr = srr))
+ref_points<- refpts(brp)
+```
+
+```{r reference points disc, message=FALSE, warning=FALSE, comment=NA, include=FALSE}
+
+landings.n(a4a.stk9_disc)<-catch.n(a4a.stk9_disc)
+landings.wt(a4a.stk9_disc)<-catch.wt(a4a.stk9_disc)
+landings(a4a.stk9_disc)<-catch(a4a.stk9_disc)
+discards(a4a.stk9_disc)<-0
+discards.n(a4a.stk9_disc)<-0
+discards.wt(a4a.stk9_disc)<-0
+
+model = "bevholt"
+srr_disc <- fmle(as.FLSR(a4a.stk9_disc, model = model),control=list(trace=0),fixed=list(b=100))
+brp_disc <- brp(FLBRP(a4a.stk9_disc, sr = srr_disc))
+ref_points_disc <- refpts(brp_disc)
+```
+
+```{r ref total df, include=FALSE}
+tot_ref <- data.frame(value = c('Fmsy','Bmsy','F2018','SSB','FFmsy','FF0.1','BBmsy'),
+                      constantM = c(ref_points['msy','harvest'],
+                                    ref_points['msy','biomass'],
+                                    fbar(a4a.stk9)[[34]],
+                                    ssb(a4a.stk9)[[34]],
+                                    fbar(a4a.stk9)[[34]]/ref_points['msy','harvest'],
+                                    fbar(a4a.stk9)[[34]]/ref_points['f0.1','harvest'],
+                                    stock(a4a.stk9)[[34]]/ref_points['msy','biomass']),
+                      Disc_constM = c(ref_points_disc['msy','harvest'],
+                                    ref_points_disc['msy','biomass'],
+                                    fbar(a4a.stk9_disc)[[34]],
+                                    ssb(a4a.stk9_disc)[[34]],
+                                    fbar(a4a.stk9_disc)[[34]]/ref_points_disc['msy','harvest'],
+                                    fbar(a4a.stk9_disc)[[34]]/ref_points_disc['f0.1','harvest'],
+                                    stock(a4a.stk9_disc)[[34]]/ref_points_disc['msy','biomass'])
+                      )
+
+
+```
+
+```{r plot stocks, echo=FALSE}
+p <- plot(FLStocks(Constant_M = a4a.stk9_sim, 
+              Discards = a4a.stk9_disc_sim))
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig14.png")
+```
+
+
+## Reference points
+
+```{r ref points table, echo=FALSE}
+kable(tot_ref)
+```
+
+
+## MCMC | constant M
+
+```{r MCMC constant, echo=FALSE}
+load("~/pCloudDrive/ICCAT/runs/a4a/MCMC/final_constM.RData")
+p <- plot(FLStocks(MLE = a4a.stk9_sim, MCMC = aa.stk + fit20))
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig12.png")
+```
+
+## MCMC | constant M discards included
+
+```{r MCMC constant discards, echo=FALSE}
+load("~/pCloudDrive/ICCAT/runs/a4a/MCMC/final_constM_disc.RData")
+p <- plot(FLStocks(MLE = a4a.stk9_disc_sim, MCMC = aa.stk + fit40))
+p
+ggsave(p,filename = "~/pCloudDrive/ICCAT/report/appendix/task5_fig13.png")
+```

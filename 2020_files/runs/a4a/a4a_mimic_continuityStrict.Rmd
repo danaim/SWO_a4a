@@ -1,0 +1,289 @@
+---
+title: "XSA continuity (strict) runs"
+output:
+  pdf_document: default
+  word_document: default
+header-includes: \usepackage{soul,color,colortbl}
+---
+
+<!---\vspace{2cm}
+<!---\centering-->
+<!---\raggedright-->
+<!---\tableofcontents-->
+<!---\pagenumbering{gobble}-->
+<!---\newpage-->
+\pagenumbering{arabic}
+
+
+```{r, echo=FALSE, message=FALSE,warning=FALSE, comment=NA}
+library(reshape2)
+library(FLXSA)
+library(ggplot2)
+library(ggplotFL)
+library(FLCore)
+library(mixdist)
+library(reshape2)
+library(plyr)
+library(data.table)
+library(dplyr)
+library(FLa4a)
+library(FLEDA)
+library(FLAssess)
+library(FLash)
+library(FLBRP) 
+library(ggthemes);theme_set(theme_bw())
+rm(list=ls())
+my.dir <- "P:/ICCAT/data/runs/xsa"
+setwd(my.dir)
+
+load("P:/ICCAT/data/swom_continuityStrict_data.rda")
+iFig=0
+```
+## Introduction
+The a4a method utilizes catch-at-age data to derive estimates of historical population size and fishing mortality. However, unlike XSA, model parameters estimated using catch-at-age analysis are done so by working forward in time and analyses do not require the assumption that removals from the fishery are known without error.
+The stock assessment model framework is a non-linear catch-at-age model implemented in R and FLR, and using ADMB that can be applied rapidly to a wide range of situations with low parametrization requirements. The model structure is defined by submodels, which are the different parts that require structural assumptions. There are 5 submodels in operation: 
+*a model for F-at-age 
+*a model for the initial age structure 
+*a model for recruitment 
+*a (list) of model(s) for abundance/biomass indices catchability-at-age 
+*and a list of models for the observation variance of catch-at-age and abundance/biomass indices. 
+The submodels form use linear models. This opens the possibility of using the linear modelling tools available in R: see for example the mgcv (http://cran.r-project.org/web/packages/mgcv/index.html) gam formulas, or factorial design formulas using.
+
+## Materials and Methods
+The statistical catch-at-age was conducted using using the FLa4a package in R (part of the FLR-project, Kell et al., 2007; http://www.flr-project.org/). 
+
+[...]
+
+The available CAS data covered the period 1985-2018 and the catch at age (CAA) data were generated using a statistical mixture distribution analysis similarly to the previous (2016) assessment. The available CAS did not justify splitting CAS into ages greater than 6 and in line with the previous assessment XSA runs were conducted with a plus group of 6. As in 2016 continuity assessment,]...] natural mortality was assumed to equal 0.2 for all ages and years. In the 2016 assessment it was assumed that fish first mature at age 3 (when 50% are mature) and are fully mature at older ages. Considering new information (ICCAT 2020), it was currently assumed 15% and 65% maturation at ages 2 and 3 respectively. Full maturity was considered from age 4 onwards. Weights-at-age were derived from the mixture analysis and were consistent with the CAA. Figures 1 and 2 illustrate the available CAA data by age and year.
+
+Three standardized CPUE series were considered as in the 2016 assessment: Greek longliners (SCRS 2020/021), Moroccal longliners (SCRS 2020/026) and Spanish longliners (SCRS 2020/043). The standardized CPUE indices were not differentiated by age and were considered to be representative of the 2-4 age-group abundances. Fleet catchability was assumed to be independent of year-class size for all terminal years. 
+
+**XSA control settings**\
+Settings were similar to those adopted in 2016 and are as follows:\
+shk.n=TRUE, shk.yrs=10, rage=1, maxit=100, shk.f=TRUE, shk.ages=2, fse=0.5, min.nse=0.3, qage=6, window=100,
+tsrange=10, tspower=1, vpa=TRUE
+
+F range: minfbar=2, maxfbar=4
+
+
+```{r bubble plot, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA,fig.height=4,fig.width=6}
+ggplot(as.data.frame(catch.n(swom)))+
+  geom_point(aes(year,age,size=data))+
+  scale_size_area(max_size=8,  guide="none") +
+  xlab("Year")+ylab("Age")+
+  scale_y_continuous(breaks=seq(0,8,2))+
+  theme_bw()+theme(legend.position="none")
+```
+
+**Figure `r iFig=iFig+1;iFig`**. Catch-at-age by year. Bubbles are proportional to abundance.\
+
+
+```{r catch.n plot, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA,fig.height=7}
+plot(catch.n(swom))+theme_bw()
+```
+
+**Figure `r iFig=iFig+1;iFig`**. Time series of catch-at-age.\
+
+```{r cpue plot, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA,fig.height=4}
+plot(FLQuants(llply(u,function(x) index(x))))+theme_bw()
+```
+**Figure `r iFig=iFig+1;iFig`**. Time series of CPUEs.\
+
+\newpage
+
+
+## Results
+
+```{r xsa run, echo=FALSE, message=FALSE, warning=FALSE, comment=NA, fig.height=7}
+range(swom, c("minfbar", "maxfbar")) <- c(2, 4)
+range(u[[1]],"startf")=0; range(u[[2]],"startf")=0; range(u[[3]],"startf")=0
+range(u[[1]],"endf")=1; range(u[[2]],"endf")=1; range(u[[3]],"endf")=1
+#validObject(u)
+xsaCtrl<-FLXSA.control(shk.n=TRUE,  shk.yrs=10,  rage=0, maxit=1000,     
+                       shk.f=TRUE,  shk.ages=2,  fse=0.5, min.nse=0.3,     
+                       qage=6, window=100,   tsrange=10, tspower=1, vpa=TRUE)
+xsa=FLXSA(swom,u, xsaCtrl)
+#slot(slot(xsa, "control"), "maxit")
+swomxsa=swom+xsa
+```
+
+
+```{r xsa plot, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA,fig.height=6,fig.width=7}
+plot(swomxsa)
+```
+
+**Figure `r iFig=iFig+1;iFig`**. XSA time series estimates\
+
+
+```{r xsa plot by cpue, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA,fig.height=7}
+a=FLStocks(mlply(data.frame(u=names(u[])), function(u,swom,idx,ctrl){
+  swom+FLXSA(swom,idx[[u]],ctrl)
+},swom=swom,idx=u,ctrl=xsaCtrl))
+a@names=names(u)
+plot(a)
+```
+**Figure `r iFig=iFig+1;iFig`**. XSA time series estimates by CPUE\
+
+
+
+```{r bubble plot harvest, echo=FALSE, message=FALSE,  warning=FALSE, comment=NA,fig.height=6}
+ggplot(as.data.frame(harvest(swomxsa)))+
+  geom_point(aes(year,age,size=data))+
+  theme_bw()+theme(legend.position="none")+
+  scale_size_area(max_size=8,  guide="none") +
+  xlab("Year")+ylab("Age")+
+  scale_y_continuous(breaks=seq(0,8,2))+
+  theme_bw()
+```
+
+**Figure `r iFig=iFig+1;iFig`**. Estimates of harvest-at-age by year. Bubbles are proportional to the estimated rates.\
+
+
+## *Diagnostic plots*
+```{r diagnostics,  residual, echo=FALSE, warning=FALSE, message=FALSE}
+dgs=mdply(data.frame(u=index.name(xsa)), function(u,xsa)
+  model.frame(FLQuants(obs     =xsa@index[[u]]%/%xsa@q.hat[[u]],
+                       hat     =xsa@stock.n[dimnames(index(xsa)[[u]])$age,
+                                            dimnames(index(xsa)[[u]])$year],
+                       residual=index.res(xsa)[[u]]),drop=T),xsa=xsa)
+dgs=ddply(dgs,.(u,age),diags:::diagsFn)
+names(dgs)[1]="name"
+dgs=transform(dgs,name=names(u)[name])
+dgs$resfill=ifelse(dgs$residual>0,"positive","negative")
+```
+
+```{r uhat, warning=FALSE, echo=FALSE}
+ggplot(dgs,aes(hat,residual))+
+  geom_point()+
+  geom_hline(aes(yintercept=0))+
+  facet_grid(name~age,scale="free_x")+
+  theme(axis.text.x = element_text(size = 8,angle=30))
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals against fitted value.\
+\vspace{1cm}
+
+```{r ursd, warning=FALSE, echo=FALSE, message=FALSE}
+ggplot(dgs[!is.na(dgs$residual),],aes(x=year,y=age))+
+  geom_point(aes(size=residual, color=resfill))+
+  scale_size_area(max_size=8,  guide="none")+
+  theme(legend.title=element_blank())
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals against year.\
+\vspace{1cm}
+
+```{r ursd fleet, warning=FALSE, echo=FALSE, message=FALSE, fig.height=4}
+ggplot(dgs,aes(year,residual))+
+  geom_point()+
+  geom_errorbar(aes(year,ymin=0,ymax=residual))+
+  geom_smooth(span=1,se=F)+
+  facet_grid(name~age)
+
+ggplot(dgs[!is.na(dgs$residual),],aes(x=year,y=age))+
+  geom_point(aes(size=residual, color=resfill))+
+  scale_size_area(max_size=8,  guide="none")+
+  theme(legend.title=element_blank())+
+  facet_grid(~name)
+```
+**Figure `r iFig=iFig+1;iFig`**. Residuals by fleet against year.\
+\vspace{1cm}
+
+
+```{r ursd2,fig.height=3, warning=FALSE, echo=FALSE}
+ggplot(subset(dgs,age==2),aes(hat,obs))+
+  geom_abline(aes(intercept=0,slope=1))+
+  geom_point()+geom_smooth(method="lm")+
+  facet_wrap(~name,scale="free",ncol=3)+
+  coord_cartesian(ylim=c(0,1400000))+
+  theme_bw()+theme(axis.text.x = element_text(size = 8,angle=30))
+```
+**Figure `r iFig=iFig+1;iFig`**. Calibration regression plots for age 2.\
+\vspace{1cm}
+
+```{r ursd3,fig.height=3, warning=FALSE, echo=FALSE}
+ggplot(subset(dgs,age==3),aes(hat,obs))+
+  geom_abline(aes(intercept=0,slope=1))+
+  geom_point()+geom_smooth(method="lm")+
+  facet_wrap(~name,scale="free", ncol=3)+
+  coord_cartesian(ylim=c(0,1000000))+
+  theme_bw()+theme_bw()+theme(axis.text.x = element_text(size = 8,angle=30))
+```
+**Figure `r iFig=iFig+1;iFig`**. Calibration regression plots for age 3.\
+\vspace{1cm}
+
+```{r ursd4,fig.height=3, warning=FALSE, echo=FALSE}
+ggplot(subset(dgs,age==4),aes(hat,obs))+
+  geom_abline(aes(intercept=0,slope=1))+
+  geom_point()+geom_smooth(method="lm")+
+  coord_cartesian(ylim=c(0,900000))+
+  facet_wrap(~name,scale="free", ncol=3)+
+  theme_bw()+theme_bw()+theme(axis.text.x = element_text(size = 8,angle=45))
+```
+**Figure `r iFig=iFig+1;iFig`**. Calibration regression plots for age 4.\
+\vspace{1cm}
+
+
+```{r uar,fig.height=6, warning=FALSE, echo=FALSE}
+ggplot(dgs,aes(residual,residualLag))+
+  geom_hline(aes(yintercept=0))+
+  geom_point()+
+  geom_smooth(method="lm",se=F)+
+  facet_grid(age~name,scale="free")+
+  theme_bw()
+```
+**Figure `r iFig=iFig+1;iFig`**. AR plots of lagged residuals\
+\vspace{1cm}
+
+```{r qq,fig.height=4, warning=FALSE, echo=FALSE}
+ggplot(dgs)                                           +
+  geom_point( aes(qqx,qqy))                            +
+  stat_smooth(aes(qqx,qqHat),method="lm",se=T,fill="blue", alpha=0.1)         +
+  facet_grid(age~name)                                    +
+  theme(legend.position="bottom")  
+```
+
+**Figure `r iFig=iFig+1;iFig`**. QQ plots to check for normality\
+\vspace{1cm}
+
+
+```{r Wts, fig.height=6, warning=FALSE, echo=FALSE}
+ggplot(subset(xsa@diagnostics,age>0))+
+  geom_point(aes(as.numeric(yrcls),nhat,size=0),shape=1,alpha=0)+
+   geom_point(aes(as.numeric(yrcls),nhat,fill=factor(age),size=w),shape=21,
+              data=subset(xsa@diagnostics,age>0&w>0))+
+  geom_vline(aes(xintercept=2011.5))+
+  facet_grid(source~age)+
+  theme_bw()+theme(legend.position="none")
+```
+***Figure `r iFig=iFig+1;iFig`**. Weights for terminal year Ns for each CPUE observation and shrinkage
+
+```{r retro, echo=FALSE, warning=FALSE}
+plot(FLStocks(mlply(data.frame(year=2014:2018), function(year,swom,u,ctrl){
+  stk=window(swom,end=year)  
+  stk+FLXSA(stk,u,ctrl)
+},swom=swom,u=u,ctrl=xsaCtrl)))+
+  theme_bw()+theme(legend.position="none")
+```
+***Figure `r iFig=iFig+1;iFig`**. Retrospective plot
+
+\newpage
+
+\vspace{1cm}
+
+## References
+\hspace{0.2in}
+\setlength\parindent{-0.2in}\setlength{\parskip}{0.0in plus 0.0in}
+\setlength{\leftskip}{0.2in}
+
+ICCAT, 2020
+
+Kell, L.T., Mosqueira, I., Grosjean, P., Fromentin, J.M., Garcia, D., Hillary, R., Jardim, E., Mardle, S., Pastoors, M.A., Poos, J.J. and Scott, F., 2007. FLR: an open-source framework for the evaluation and development of management strategies. ICES Journal of Marine Science: Journal du Conseil, 64(4), pp.640-646.
+
+SCRS 2020/021
+
+SCRS 2020/026
+
+SCRS 2020/043
+
+Shepherd, J. (1999). Extended survivor’s analysis: An improved method for the analysis of catch-at-age data and abundance indices. ICES Journal of Marine Science, 56(5), 584–591.
+
+
