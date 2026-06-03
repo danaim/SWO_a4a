@@ -1,0 +1,142 @@
+---
+title: "Notes on Mediterranean Swordfish"
+subtitle: "General notes on the swordfish assessment"
+author: "Danai"
+date: "2026-05-31"
+format: html
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+## Input for assessment
+
+```{r}
+library(FLCore)
+library(FLa4a)
+library(FLBRP)
+library(ggplot2); theme_set(theme_minimal())
+```
+
+### Growth parameters:
+VB params: Linf=238.58, k=0.185, t0=-1.404 
+
+### Length weight
+a=0.0000096102, b=3.059
+
+### Maturity Vector
+```{r}
+
+#| label: tbl-maturity
+#| tbl-cap: "Maturity vector for ages 0 to 9."
+
+mat_0_9  <- c(0.00, 0.00, 0.15, 0.65, 1.00, 1.00, rep(1.00, 4))
+
+maturity_table <- rbind(
+  Age = paste0("**", 0:9, "**"),      
+  Maturity = sprintf("%.2f", mat_0_9)  
+)
+
+knitr::kable(
+  maturity_table, 
+  col.names = NULL,                     
+  align = "lcccccccccc"                # Left-aligns row names, centers data
+)
+```
+
+----
+
+### Catches (since 1950)
+```{r}
+ca <- read.csv("data/SWOMed_JABBA_catch_10April2026.csv")
+ca.flq <- FLQuant(as.vector(ca[,-1]), dimnames = list(age = 'all',year = 1950:2024))
+plot(ca.flq)
+```
+
+## Rejection of past a4a model
+
+### Key Model Differences and Advice
+
+* **Input Data Timeline:** The surplus production model JABBA utilized the entire catch time series from 1950 to 2018, whereas the age-structured models (XSA and a4a) did not include data prior to 1985.
+* **Initial 1950 Stock State:** For the JABBA model, the Group accepted the assumption that relative stock biomass was close to unfished levels (~99% of carrying capacity) in 1950, noting it aligned with expert scientific knowledge of the fishery.
+* **1985 Stock Status Discrepancies:** The models showed conflicting results for 1985 (the first year considered in XSA):
+    * *XSA (including discards):* Estimated a heavily depleted stock, with SSB at 54.1% of $SSB_{MSY}$ and 9.67% of unfished $SSB_{0}$.
+    * *JABBA ('Reference' and 'ASEM'):* Estimated a sustainable stock, with $B/B_{MSY} = 1.59$ and $B/B_{0} = 0.70$.
+
+### Biological Implausibility of Age-Structured Models
+
+The Group concluded that the depletion levels estimated by XSA and a4a for 1985 were biologically implausible due to two major conflicts with catch history:
+
+1. **Catches Below MSY:** Total catches never exceeded 14,000 t prior to 1985 and remained consistently below the MSY thresholds of both models (XSA MSY = 16,300 t; JABBA joint-MSY = 13,325 t). Theoretically, overfishing an underexploited stock requires catches to exceed MSY.
+2. **Unrealistic Stock Resilience:** XSA paradoxically predicted that despite the stock being severely depleted in 1985, it could still support catches above MSY from 1986–1989 and sustain catches above 80% of MSY through the 1990s and 2000s.
+
+## Final Decision
+Because the a4a model results mirrored the flaws of the XSA model, the Group decided to provide its scientific advice for the Mediterranean swordfish stock based exclusively on the two **JABBA** models.
+
+
+::: {.callout-important}
+## Note
+The ratios of $SSB/SSB_{MSY}$ from XSA and a4a are not comparable to the ones coming from JABBA model. The exploitable biomass include ages 1,2 and 3 which are not yet fully mature (see below selectivity and maturity curves). 
+:::
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+load("2020_files/runs/a4a/MCMC/input4MCMC.RData")
+
+# Discards run
+fmod <- ~s(year, k = 17) + s(age, k = 3)
+srmod <- ~s(year, k = 15)
+qmod <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~s(year, k = 9))
+fit <- sca(stk_disc, idx_bio, fmodel = fmod, qmodel = qmod, srmodel = srmod)
+a4a.stk <- stk + fit
+#plot(a4a.stk)
+# SRR
+
+landings.n(a4a.stk)<-catch.n(a4a.stk)
+landings.wt(a4a.stk)<-catch.wt(a4a.stk)
+landings(a4a.stk)<-catch(a4a.stk)
+discards(a4a.stk)<-0
+discards.n(a4a.stk)<-0
+discards.wt(a4a.stk)<-0
+
+sr0 <- as.FLSR(a4a.stk, model = bevholt)
+srr <- fmle(sr0,control=list(trace=0),fixed=list(b=100))
+#srr <- fmle(sr0,control=list(trace=0))
+#plot(srr)
+brp0 <- brp(FLBRP(a4a.stk, sr = srr))
+#refpts(brp0)
+#ssb(a4a.stk)[,'1985']/refpts(brp0)['msy','ssb']
+#ssb(a4a.stk)[,'2018']/refpts(brp0)['msy','ssb']
+#stock(a4a.stk)[,'1985']/refpts(brp0)['msy','biomass']
+
+a4a.stks <- stk_disc + simulate(fit, nsim = 1000)
+
+
+brefpt <- FLPar(BMSY = an(refpts(brp0)['msy','biomass']))
+yrefpt <- FLPar(MSY = an(refpts(brp0)['msy','yield']))
+frefpt <- FLPar(FMSY = an(refpts(brp0)['msy','harvest']))
+
+p1 <- plot(a4a.stks, metrics = list(Biomass = stock)) +
+    geom_flpar(data = brefpt, x = 1990) 
+p2 <- plot(a4a.stks, metrics = list(Catch = catch)) +
+    geom_flpar(data = yrefpt, x = 1995) 
+p3 <- plot(a4a.stks, metrics = list(F = fbar)) +
+    geom_flpar(data = frefpt, x = 2000) + ggtitle('F')
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Total Stock Biomass from a4a model"
+#|   - "Estimated catches from a4a model"
+p1
+p2
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+flqs <- FLQuants(sel=catch.sel(brp0)/max(catch.sel(brp0)),mat=mat(brp0))
+df <- as.data.frame(flqs)
+ggplot(data = df) + geom_line(aes(x = age, y = data, group = qname, color = qname))
+
+#xyplot(data~age,data=catch.sel(brp0), type=c('l', 'p'), ylab="f", ylim=c(0,1.5))
+```
+
