@@ -57,7 +57,10 @@ catch.n(stk) <- catch.n(stk)*SOP.flq
 (SOP=as.matrix(as.data.frame(catch(stk))[7]/colSums(catch.n(stk)*catch.wt(stk))))
 catch(stk)/computeCatch(stk)
 
+catch.n(stk)[1, ac(1972:1977)] <- NA
 
+ggplot(data = catch.n(setPlusGroup(stk,5))) + geom_line(aes(x = age, y = data, group = year, color = year))
+saveRDS(stk,"Robj/swo_stk.rds")
 
 ### Random stuff
 # GT : Don't bother to look from now on
