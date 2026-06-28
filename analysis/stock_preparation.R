@@ -38,6 +38,8 @@ stk@landings <- stk@catch
 stk@landings.wt = cw.flq
 stk@landings <- ca.flq[, ac(1972:2024)]
 
+stk@stock.wt <- stk@catch.wt
+
 stk@mat <- mat.flq
 stk@m <- m.flq
 stk@harvest.spwn <- stk@m.spwn <-  FLQuant(0.5, dimnames = list(age = 0:9,year = 1972:2024))
