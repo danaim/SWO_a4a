@@ -6,21 +6,9 @@ library(FLBRP)
 library(ggplot2);theme_set(theme_bw())
 rm(list = ls())
 
-ca <- read.csv("data/SWOMed_JABBA_catch_10April2026.csv")
-ca.flq <- FLQuant(as.vector(ca[,-1]), dimnames = list(age = 'all',year = 1950:2024))
-
-# Load old ones for checking and play with the indices
+# Load the old one to import the Sicilian index
 load("2020_files/runs/a4a/MCMC/input4MCMC.RData")
-stk_2020 <- stk
-stk_disc_2020 <- stk_disc
-idx_2020 <- idx_bio
 rm(stk);rm(stk_disc)
-fmod2020 <- ~s(year, k = 17) + s(age, k = 3)
-srmod2020 <- ~s(year, k = 15)
-qmod2020 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~s(year, k = 9))
-fit2020 <- sca(stk_disc_2020, idx_2020, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod2020)
-a4a.stk2020 <- stk_disc_2020 + simulate(fit2020, nsim = 1000)
-
 
 swo.stk <- readRDS("Robj/swo_stk.rds")
 idx <- readRDS("Robj/swo_bio_idx.rds")
@@ -29,52 +17,123 @@ rm(idx_bio)
 
 stk <- swo.stk
 stk <- replaceZeros(stk)
+
+
+### ------------------------------------------------------------------ ###
+# fmodels
 fmod2 <- ~s(year, k = 20) + s(age, k = 4)
 fmod3 <- ~s(year, k = 25) + s(age, k = 4) + te(year, age, k = c(8,4))
 fmod4 <- ~s(year, k = 30) + s(age, k = 5)
 
+fmods <- list(fmod2, fmod3)
+### ------------------------------------------------------------------ ###
 
+### ------------------------------------------------------------------ ###
 ## different sr models
 srmod1 <- ~s(year, k = 17)
-srmod3 <- ~I(as.numeric(year<2000)) - 1 + s(year, k = 15,by = as.numeric(year>=1987))
-srmod7 <- ~ I(as.numeric(year<1987)) + 1 + s(year, k=15, by=as.numeric(year>=1987))
-srmod8 <- ~I(as.numeric(year>=1987)) + 1 + s(year, k = 15,by = as.numeric(year>1987))
+srmod3 <- ~I(as.numeric(year<2000)) - 1 + s(year, k = 15, by = as.numeric(year>=1987))
+srmod9 <- ~I(as.numeric(year<2000)) + 1 + s(year, k = 15, by = as.numeric(year>=1987))
+srmod10 <- ~I(as.numeric(year<2000)) + 1 + s(year, k = 15, by = as.numeric(year>=1987),bs='cr' )
+srmod7 <- ~I(as.numeric(year<1987)) + 1 + s(year, k = 15, by = as.numeric(year>=1987))
+srmod8 <- ~I(as.numeric(year=<2024)) + 1 + s(year, k = 15,by = as.numeric(year>=1987))
 srmod6 <- ~s(year, k = 15,by = as.numeric(year>=1987))
 srmod4 <- ~s(year, k = 15, by = as.numeric(year, year>1987))
 srmod5 <- ~bevholt(CV = 0.2)
 
-qmod <- list(~1,~s(year, k = 9), ~s(year, k = 3), ~1, ~s(year, k = 3),~1)
+srmods <- list(srmod1, srmod3, srmod7)
+### ------------------------------------------------------------------ ###
 
-# srmods <- list(srmod1, srmod2, srmod3, srmod4 , srmod5)
+### ------------------------------------------------------------------ ###
+qmod1 <- list(~1,~s(year, k = 9), ~s(year, k = 3), ~1, ~s(year, k = 3),~1)
+qmod2 <- list( ~1, ~s(year, k = 4), ~s(year, k = 3), ~1, ~s(year, k = 3), ~1 )
 
-# extended run up to 1972
-stk2 <- window(stk, start = 1978)
-# fits <- scas(FLStocks(stk), list(idx), fmodel = fmod2, srmodel = srmods, qmodel = list (qmod))
+qmods <- list(qmod1, qmod2)
+### ------------------------------------------------------------------ ###
 
-fit1 <- sca(stk2, idx, fmodel = fmod2, srmodel = srmod1, qmodel = qmod) 
-fit3 <- sca(stk2, idx, fmodel = fmod2, srmodel = srmod3, qmodel = qmod)
-fit7 <- sca(stk2, idx, fmodel = fmod2, srmodel = srmod7, qmodel = qmod)
-fit8 <- sca(stk2, idx, fmodel = fmod2, srmodel = srmod8, qmodel = qmod)
-fit6 <- sca(stk2, idx, fmodel = fmod2, srmodel = srmod6, qmodel = qmod)
-fit4 <- sca(stk2, idx, fmodel = fmod2, srmodel = srmod4, qmodel = qmod)
-fit5 <- sca(stk2, idx, fmodel = fmod2, srmodel = srmod5, qmodel = qmod)
 
-a4a.stk1 <- stk2 + simulate(fit1, nsim = 1000)
-a4a.stk3 <- stk2 + simulate(fit3, nsim = 1000)
-a4a.stk7 <- stk2 + simulate(fit7, nsim = 1000)
-a4a.stk8 <- stk2 + simulate(fit8, nsim = 1000)
-a4a.stk6 <- stk2 + simulate(fit6, nsim = 1000)
-a4a.stk4 <- stk2 + simulate(fit4, nsim = 1000)
-a4a.stk5 <- stk2 + simulate(fit5, nsim = 1000)
+# extended run up to 1978
+stk2 <- window(stk, start = 1978)  # NAs the years 1972 - 1978
 
-plot(FLStocks(fit5 = a4a.stk5, fit4 = a4a.stk4, fit7 = a4a.stk7, fit6 = a4a.stk6,
-fit3 = a4a.stk3))
-plot(FLStocks(fit3 = a4a.stk3, fit6 = a4a.stk6))
-plot(FLStocks(baserun = a4a.stk2, run2020 = a4a.stk2020, 
-    catch = stk, fit3 = a4a.stk3, fit4 = a4a.stk4))
+fits <- scas(FLStocks(stk2), list(idx), fmodel = fmods, 
+    srmodel = srmods, qmodel = qmods,
+    combination.all = TRUE)
 
-plot(FLStocks(baserun = a4a.stk2, run2020 = a4a.stk2020, 
-    catch = stk))
+plot(fits) # fails for now
+
+stks <- lapply(fits, function(x) stk2 + simulate(x, nsim = 500))
+ress <- lapply(fits, function(x){
+    residuals(x, stk2, idx)
+})
+
+plot(ress[[6]])
+wireframe(harvest(fits[[1]]))
+
+### ------------------------------------------------- ###
+### Random things
+### ------------------------------------------------- ###
+
+df <- data.frame(year = 1978:2024)
+
+dm3 <- getX(srmod3, df)
+dm9 <- getX(srmod9, df)
+dm10 <- getX(srmod10, df)
+ncol(dm3);ncol(dm9)
+
+
+par(mfrow = c(1, 2))
+
+image(x = df$year, y = 1:ncol(dm3), z = dm3, 
+      main = "Design Matrix: srmod3 (- 1)", 
+      xlab = "Year", ylab = "Basis Function",
+      col = hcl.colors(50, "Blue-Red"))
+
+
+image(x = df$year, y = 1:ncol(dm9), z = dm9, 
+      main = "Design Matrix: srmod9 (+ 1)", 
+      xlab = "Year", ylab = "Basis Function",
+      col = hcl.colors(50, "Blue-Red"))
+par(mfrow = c(1, 1))
+
+
+par(mfrow = c(1, 2))
+matplot(x = df$year, y = dm3[,1:2], type = "l", lty = 1, lwd = 2,
+        col = hcl.colors(ncol(dm3), "Spectral"),
+        main = "Basis Functions: srmod3 (- 1)",
+        xlab = "Year", ylab = "Basis Function")
+
+abline(h = 0, col = "black", lwd = 2, lty = 2)
+matplot(x = df$year, y = dm9[,1:2], type = "l", lty = 1, lwd = 2,
+        col = hcl.colors(ncol(dm9), "Spectral"),
+        main = "Basis Functions: srmod9 (+ 1)",
+        xlab = "Year", ylab = "Basis Function")
+abline(h = 0, col = "black", lwd = 2, lty = 2)
+par(mfrow = c(1, 1))
+
+par(mfrow = c(1, 2))
+matplot(x = df$year, y = dm3, type = "l", lty = 1, lwd = 2,
+        col = hcl.colors(ncol(dm3), "Spectral"),
+        main = "Basis Functions: srmod3 (- 1)",
+        xlab = "Year", ylab = "Basis Function")
+
+abline(h = 0, col = "black", lwd = 2, lty = 2)
+matplot(x = df$year, y = dm9, type = "l", lty = 1, lwd = 2,
+        col = hcl.colors(ncol(dm9), "Spectral"),
+        main = "Basis Functions: srmod9 (+ 1)",
+        xlab = "Year", ylab = "Basis Function")
+abline(h = 0, col = "black", lwd = 2, lty = 2)
+par(mfrow = c(1, 1))
+
+
+matplot(x = df$year, y = dm10, type = "l", lty = 1, lwd = 2,
+        col = hcl.colors(ncol(dm10), "Spectral"),
+        main = "Basis Functions: srmod9 (+ 1)",
+        xlab = "Year", ylab = "Parameter Value")
+
+image(x = df$year, y = 1:ncol(dm10), z = dm10, 
+      main = "Design Matrix: srmod9 (+ 1)", 
+      xlab = "Year", ylab = "Parameter / Basis Function",
+      col = hcl.colors(50, "Blue-Red"))
+
 
 ### --------------------------------------------------- ###
 ### This should be done properly with FLife and simulating 
@@ -83,6 +142,9 @@ plot(FLStocks(baserun = a4a.stk2, run2020 = a4a.stk2020,
 ### beginning of the time series and we scale it to the
 ### catch. 
 ### -------------------------------------------------- ###
+
+ca <- read.csv("data/SWOMed_JABBA_catch_10April2026.csv")
+ca.flq <- FLQuant(as.vector(ca[,-1]), dimnames = list(age = 'all',year = 1950:2024))
 
 # Trial with an assumed initial population and total catches
 stk_ext <- window(stk, start = 1950)
@@ -126,3 +188,5 @@ plot(catch.n(stk_ext))
 
 xx <- as.data.frame(idx)
 ggplot(data = xx[xx$slot == 'index',]) + geom_line(aes(x = year, y = data)) + facet_wrap(~cname)
+
+
