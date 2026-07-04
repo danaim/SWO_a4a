@@ -35,7 +35,7 @@ srmod3 <- ~I(as.numeric(year<2000)) - 1 + s(year, k = 15, by = as.numeric(year>=
 srmod9 <- ~I(as.numeric(year<2000)) + 1 + s(year, k = 15, by = as.numeric(year>=1987))
 srmod10 <- ~I(as.numeric(year<2000)) + 1 + s(year, k = 15, by = as.numeric(year>=1987),bs='cr' )
 srmod7 <- ~I(as.numeric(year<1987)) + 1 + s(year, k = 15, by = as.numeric(year>=1987))
-srmod8 <- ~I(as.numeric(year=<2024)) + 1 + s(year, k = 15,by = as.numeric(year>=1987))
+srmod8 <- ~I(as.numeric(year<=2024)) + 1 + s(year, k = 15,by = as.numeric(year>=1987))
 srmod6 <- ~s(year, k = 15,by = as.numeric(year>=1987))
 srmod4 <- ~s(year, k = 15, by = as.numeric(year, year>1987))
 srmod5 <- ~bevholt(CV = 0.2)

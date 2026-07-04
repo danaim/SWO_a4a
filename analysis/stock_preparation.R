@@ -43,8 +43,6 @@ stk@stock.wt <- stk@catch.wt
 stk@mat <- mat.flq
 stk@m <- m.flq
 stk@harvest.spwn <- stk@m.spwn <-  FLQuant(0.5, dimnames = list(age = 0:9,year = 1972:2024))
-units(stk) <- standardUnits(stk)
-units(catch.wt(stk)) <- "t"
 
 min_yr <- range(stk)['minyear']
 max_yr <- range(stk)['maxyear']
@@ -60,6 +58,11 @@ catch.n(stk) <- catch.n(stk)*SOP.flq
 catch(stk)/computeCatch(stk)
 
 catch.n(stk)[1, ac(1972:1977)] <- NA
+
+units(stk) <- standardUnits(stk)
+units(catch.wt(stk)) <- units(landings.wt(stk)) <- units(discards.wt(stk)) <- "t"
+units(stock.wt(stk)) <- 't'
+units(stk)
 
 ggplot(data = catch.n(setPlusGroup(stk,5))) + geom_line(aes(x = age, y = data, group = year, color = year))
 saveRDS(stk,"Robj/swo_stk.rds")

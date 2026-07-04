@@ -39,8 +39,12 @@ for(i in 1:length(idx_bio)) {
   range(idx_bio[[i]],c("min","max")) = c(1,3)
   units(index(idx_bio[[i]])) <- "t"
 }
+idx <- idx_bio
+# add Ligurian old index that is missing
+load("2020_files/runs/a4a/MCMC/input4MCMC.RData")
+idx[['SIC_LL']] <- idx_bio[['SI_LL']]
 
-saveRDS(idx_bio, file = 'Robj/swo_bio_idx.rds')
+saveRDS(idx, file = 'Robj/swo_bio_idx.rds')
 
-plot(idx_bio)
-index(idx_bio[[1]])
+plot(idx)
+
