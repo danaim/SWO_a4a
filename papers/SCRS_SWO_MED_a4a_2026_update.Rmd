@@ -44,8 +44,6 @@ theme_set(theme_bw(base_size = 10))
 ## 2020 assessment inputs (ages 0-5, 1985-2018, plus group 5)
 stk_2020 <- readRDS("Robj/swo_stk_2020.rds")
 idx_2020 <- readRDS("Robj/swo_bio_idx_2020.rds")
-
-## 2026 updated inputs (ages 0-9, 1972-2024, plus group 9)
 swo.stk  <- readRDS("Robj/swo_stk.rds")
 swo.idx  <- readRDS("Robj/swo_bio_idx_std.rds")
 ```
@@ -147,6 +145,20 @@ ggplot(as.data.frame(FLQuants(caa2020 = catch.n(stk_2020),
   facet_wrap(~age, ncol = 3)
 ```
 
+For the update run we keep the plusgroup as the one agreed in the 2020 assessment: using a plus group of 5. 
+
+```{r caa-comp2, fig.height=5, fig.cap="Catch-at-age by year for the 2020 inputs (ages 0-5) and the 2026 update (ages 0-5).", message = FALSE}
+stk <- window(swo.stk, start = 1985) # truncate early years as in 2020
+stk <- replaceZeros(stk)
+stk <- setPlusGroup(stk, 5) # same plus group
+range(stk)[c('minfbar','maxfbar')] <- c(2,4) 
+ggplot(as.data.frame(FLQuants(caa2020 = catch.n(stk_2020), 
+                              caa2026 = catch.n(stk)))) +
+  geom_line(aes(x = year, y = data, group = qname, color = qname))+
+  facet_wrap(~age, ncol = 3, scales = 'free')
+```
+
+
 ## Analysis
 
 The assessment uses the `a4a` statistical catch-at-age framework, in which
@@ -205,11 +217,6 @@ a4a.2020 <- stk_2020 + simulate(fit2020, nsim = 1000)
 ```
 
 ```{r fit-update}
-stk <- window(swo.stk, start = 1985) # truncate early years as in 2020
-stk <- replaceZeros(stk)
-stk <- setPlusGroup(stk, 5) # same plus group
-range(stk)[c('minfbar','maxfbar')] <- c(2,4) 
-
 # Also dropping the Ligurian from here
 idx <- swo.idx[-2]
 
@@ -223,16 +230,16 @@ a4a.stk <- stk + simulate(fit, nsim = 1000)
 
 ```{r fit-sens1}
 ## sensitivity 1: updated data truncated to 2018
-stk <- window(stk, end = 2018)
-idx <- window(idx, end = 2018)
-fit1 <- sca(stk, idx, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod) 
-a4a.sens1 <- stk + simulate(fit1, nsim = 1000)
+stk_s <- window(stk, end = 2018)
+idx_s <- window(idx, end = 2018)
+fit1 <- sca(stk_s, idx_s, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod) 
+a4a.sens1 <- stk_s + simulate(fit1, nsim = 1000)
 ```
 
 ```{r fit-sens2}
 ## sensitivity 2: updated data truncated to 2018 - old indices
-fit2 <- sca(stk, idx_2020, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod2020) 
-a4a.sens2 <- stk + simulate(fit2, nsim = 1000)
+fit2 <- sca(stk_s, idx_2020, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod2020) 
+a4a.sens2 <- stk_s + simulate(fit2, nsim = 1000)
 ```
 
 \pagebreak
@@ -257,10 +264,6 @@ plot(FLStocks(`2020 baseline` = a4a.2020, `sensitivity 1` = a4a.sens1,
 
 
 ```{r resid, fig.height=6, fig.cap="Standardized residuals of the 2026 updated a4a fit for the CPUE indices and catch-at-age."}
-stk <- window(swo.stk, start = 1985) # truncate early years as in 2020
-stk <- replaceZeros(stk)
-stk <- setPlusGroup(stk, 5) # same plus group
-idx <- swo.idx[-2]
 range(stk)[c('minfbar','maxfbar')] <- c(2,4) 
 res <- residuals(fit, stk, idx)
 plot(res)
