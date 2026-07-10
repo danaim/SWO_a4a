@@ -27,15 +27,15 @@ idx_bio[['LI_SUR']] <- FLIndexBiomass(index = FLQuant(
   dimnames=dms))
 
 # LIG
-dms <- list(age="all", year=2009:2022)
+dms <- list(age="all", year=2010:2023)
 idx_bio[['LI_LL']] <- FLIndexBiomass(index = FLQuant(
-  std_by_mean(indices$w_LIG_LL_std[indices$Year %in% 2009:2022]), 
+  std_by_mean(indices$w_LIG_LL_std[indices$Year %in% 2010:2023]), 
   dimnames=dms))
 
 # SPN
-dms <- list(age="all", year=1988:2023)
+dms <- list(age="all", year=1988:2024)
 idx_bio[['SP_LL']] <- FLIndexBiomass(index = FLQuant(
-  std_by_mean(indices$w_SPN_LL_std[indices$Year %in% 1988:2023]), 
+  std_by_mean(indices$w_SPN_LL_std[indices$Year %in% 1988:2024]), 
   dimnames=dms))
 
 # MOR

@@ -27,15 +27,15 @@ idx_bio[['LI_SUR']] <- FLIndexBiomass(index = FLQuant(
   dimnames=dms))
 
 # LIG
-dms <- list(age="all", year=2009:2022)
+dms <- list(age="all", year=2010:2023)
 idx_bio[['LI_LL']] <- FLIndexBiomass(index = FLQuant(
-  std_by_mean(indices$w_LIG_LL_std[indices$Year %in% 2009:2022]), 
+  std_by_mean(indices$w_LIG_LL_std[indices$Year %in% 2010:2023]), 
   dimnames=dms))
 
 # SPN
-dms <- list(age="all", year=1988:2023)
+dms <- list(age="all", year=1988:2024)
 idx_bio[['SP_LL']] <- FLIndexBiomass(index = FLQuant(
-  std_by_mean(indices$w_SPN_LL_std[indices$Year %in% 1988:2023]), 
+  std_by_mean(indices$w_SPN_LL_std[indices$Year %in% 1988:2024]), 
   dimnames=dms))
 
 # MOR
@@ -47,7 +47,7 @@ idx_bio[['MO_LL']] <- FLIndexBiomass(index = FLQuant(
 # Format dimensions and units
 for(i in 1:length(idx_bio)) {
   range(idx_bio[[i]], c("startf","endf")) = c(0,1)
-  range(idx_bio[[i]], c("min","max")) = c(2,4)
+  range(idx_bio[[i]], c("min","max")) = c(1,4) # change also the age range
   # Updated unit since the value is now a relative index, not absolute tons
   units(index(idx_bio[[i]])) <- "relative" 
 }
@@ -64,6 +64,7 @@ dms <- list(age="all", year=1990:2009)
 idx[['SI_GN']] <-  FLIndexBiomass(index = FLQuant(old_indices$SiGN[old_indices$Year %in% 1990:2009], 
   dimnames=dms))
 range(idx[['SI_GN']], c("min","max")) = c(3,7)
+range(idx[['SI_GN']], c("startf","endf")) = c(0,1)
 
 saveRDS(idx, file = 'Robj/swo_bio_idx_std_ext.rds')
 
