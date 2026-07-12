@@ -1,0 +1,518 @@
+---
+title: '**Assessing Mediterranean Swordfish Using the Assessment for All (a4a) Model \vspace{0.1cm}**'
+documentclass: article
+author: "\\small D. Mantopoulou-Palouka$^1$, G. Tserpes$^2$, A. Kimoto$^3$, E. Jardim$^4$"
+date: ''
+output:
+  bookdown::pdf_document2:
+    toc: false
+    number_sections: false
+    latex_engine: xelatex
+mainfont: Caladea
+fontsize: 10pt
+geometry: a4paper, left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm
+header-includes:
+- \usepackage{titling}
+- \pretitle{\begin{center}\large\bfseries}
+- \posttitle{\end{center}}
+- \usepackage{soul,color,colortbl,fancyhdr}
+- \usepackage{caption}
+- \usepackage[singlelinecheck=false]{caption}
+- \usepackage[document]{ragged2e}
+- \usepackage{float}
+---
+
+\footnotetext[1]{Joint Research Center. Corresponding author: Danai.MANTOPOULOU-PALOUKA@ec.europa.eu}
+\footnotetext[2]{Hellenic Center for Marine Research, Heraklion, Greece}
+\footnotetext[3]{ International Commission for the Conservation of Atlantic Tunas, Madrid Spain}
+\footnotetext[4]{Portuguese Institute for Sea and Atmosphere, Lisbon, Portugal}
+
+\pagestyle{fancy}
+\fancypagestyle{plain}{\pagestyle{fancy}}
+\fancyhead{}
+\fancyhead[L]{SCRS/2026/170}
+\captionsetup[table]{labelformat=empty}
+
+
+```{r setup, include=FALSE}
+proj_root <- if (file.exists("analysis/plot_functions.R")) "." else ".."
+knitr::opts_knit$set(root.dir = normalizePath(proj_root))
+knitr::opts_chunk$set(
+  echo = FALSE, warning = FALSE, message = FALSE,
+  fig.width = 7, fig.height = 4.5, dpi = 300,
+  cache = TRUE, cache.lazy = FALSE
+)
+```
+
+```{r libs, cache=FALSE}
+suppressMessages({
+  library(FLCore)
+  library(FLa4a)
+  library(FLBRP)
+  library(ggplotFL)
+  library(knitr)
+  library(kableExtra)
+  library(gridExtra)
+  library(patchwork)
+})
+theme_set(theme_bw(base_size = 10))
+
+if (file.exists("analysis/plot_functions.R")) {
+  source("analysis/plot_functions.R")
+} else {
+  source("../analysis/plot_functions.R")
+}
+
+## Helper for custom retro
+retro_runs <- function(stk, idxs, retro = 5, kfrac = 0.3, k_f = 20, k_sr = 20, qmod) {
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x) {
+    yr <- range(stk)["maxyear"] - x
+    stk_sub <- window(stk, end = yr)
+    idx_sub <- FLIndices(window(idxs, end = yr))
+    KY <- unname(k_f - floor(x * kfrac))
+    KZ <- unname(k_sr - floor(x * kfrac))
+    fmod_sub <- as.formula(substitute(~ s(year, k = KY) + s(age, k = 8) + ti(year, age, k = c(6, 5)), list(KY = KY)))
+    srmod_sub <- as.formula(substitute(~ s(year, k = KZ), list(KZ = KZ)))
+    fit_sub <- sca(stk_sub, idx_sub, fmodel = fmod_sub, srmodel = srmod_sub, qmodel = qmod)
+    stk_sub + fit_sub
+  })
+  FLStocks(lst0)
+}
+```
+
+```{r load-data}
+swo.stk   <- readRDS("Robj/swo_stk.rds")
+swo.stk.l <- readRDS("Robj/swo_stk_loren.rds")
+swo.idx   <- readRDS("Robj/swo_bio_idx_std.rds")
+
+## Use standardized longline indices (excluding index 2)
+idx_use <- swo.idx[-2]
+for (i in seq_along(idx_use)) {
+  range(idx_use[[i]], c("min", "max")) <- c(1, 4)
+  units(index(idx_use[[i]])) <- "t"
+}
+```
+
+<!-- \vspace{-2cm} -->
+\begin{center}
+\emph{SUMMARY}
+\end{center} 
+
+\justifying
+\setlength{\leftskip}{1.2cm}
+\setlength{\rightskip}{1.2cm}
+
+*Following the continuity update of the 2020 Mediterranean swordfish (Xiphias gladius) assessment (SCRS/2026/169), this document explores different submodel configurations in the light of the new catch at age matrix, using the a4a statistical catch-at-age framework. The exploratory runs address historical data coverage, different natural mortality assumptions, and time-varying selectivity. Specifically, we evaluate the impact of assuming an age-dependent Lorenzen natural mortality vector compared to a constant natural mortality ($M=0.2$). Additionally, a tensor product interaction is incorporated into the fishing mortality submodel to capture dynamic selectivity changes across age classes over time.*
+
+\setlength{\leftskip}{0pt}
+\setlength{\rightskip}{0pt}
+
+\vspace{0.3cm}
+
+\center _KEYWORDS_ \raggedright
+\center _Swordfish, Mediterranean, Stock Assessment, a4a_ 
+\raggedright
+
+\newpage
+
+\justifying
+
+## 1. Introduction
+
+Assessments of the Mediterranean swordfish stock are performed using a statistical catch-at-age model developed under the Assessment for All (a4a) Initiative of the European Commission Joint Research Centre (Jardim et al., 2015). The a4a framework utilizes catch-at-age data to derive estimates of historical population size and fishing mortality, allowing for flexible modeling of structural components through smooth functions (splines). a4a is a non-linear statistical catch-at-age model and is defined by submodels, which are the different parts that require structural assumptions. There are 5 submodels in operation: F-at-age, abundance indices catchability-at-age, recruitment, observation variance of catch and abundance indices and population’s age structure in the first year. Modeling assumptions include: Baranov’s equation for the catches, exponential decay of the population numbers and log-normality of catch and abundance indices errors.
+
+While the continuity run (SCRS/2026/169) maintained the strict structural assumptions of the 2020 assessment, preliminary analyses indicated that different submodel configuration could improve model diagnostics and biological realism. In particular, the assumption of a constant natural mortality rate across all ages may not accurately reflect the higher mortality experienced by younger, smaller individuals. Furthermore, changes in fleet dynamics and targeting over the assessment period suggest that a separable age-year effect, which assumes constant selectivity over time for fishing mortality, might be overly restrictive.
+
+This document presents two candidate models for the 2026 assessment: one assuming a constant natural mortality vector ($M=0.2$), and another applying an age-differentiated natural mortality vector derived using the Lorenzen formula. Both models incorporate a tensor product to model time-varying selectivity, starting from 1985 to ensure data quality and stability.
+
+## 2. Materials and methods
+
+### 2.1 Input Data
+
+The available catch-at-age (CAA) data covers the period 1985–2024. A plus group was set at age 9, which improved the stability of the different models tested and reduced residuals in catch-at-age numbers. The reference fishing mortality ($\bar{F}$) was averaged over ages 1-4.
+
+Five standardized CPUE series were considered as tuning indices: Greek longliners (GR_LL), Moroccan longliners (MO_LL), Spanish longliners (SP_LL), Ligurian longliners (LI_LL), and Sicilian longliners (SI_LL). These indices were considered representative of ages 1-4.
+
+Two structural assumptions for natural mortality ($M$) were evaluated (Figure \@ref(fig:inputData)):
+
+1.  **Constant M:** $M = 0.2$ for all ages.
+2.  **Lorenzen M:** Age-differentiated mortality, characterized by higher mortality at younger ages.
+
+Maturity was specified as an ogive, with fish beginning to mature at age 2 and reaching full maturity by age 4.
+
+```{r inputData, fig.cap="Input data summary. Left: Catch-at-age colored by decade. Top Right: Maturity ogive. Bottom Right: Natural Mortality vectors (Constant vs. Lorenzen).", fig.height=5}
+p1 <- ggplot(as.data.frame(catch.n(swo.stk)), 
+             aes(x = as.numeric(as.character(age)), 
+                 y = data, 
+                 color = as.factor(floor(as.numeric(as.character(year)) / 10) * 10),              
+                 group = as.factor(year))) +
+  geom_line(alpha = 0.85) +
+  geom_vline(xintercept = c(1, 2, 3), linetype = "dotted") +
+  scale_color_viridis_d(option = "turbo") +
+  labs(title = "Catch-at-Age", x = "Age", y = "Numbers", color = "Decade") +
+  theme_bw(base_size = 9) +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = c(0:9))
+
+mat_df <- as.data.frame(mat(swo.stk)[, 1])
+p2 <- ggplot(mat_df, aes(x = as.numeric(as.character(age)), y = data)) +
+  geom_line(color = "#2b83ba", linewidth = 0.9) +
+  geom_point(color = "#2b83ba", size = 1.6) +
+  labs(title = "Maturity Ogive", x = "Age", y = "Proportion Mature") +
+  theme_bw(base_size = 8.5) +
+  scale_x_continuous(breaks = c(0:9))
+
+m_df <- rbind(
+  data.frame(age = as.numeric(as.character(as.data.frame(m(swo.stk)[, 1])$age)),
+             M   = as.data.frame(m(swo.stk)[, 1])$data,
+             Type = "Constant M"),
+  data.frame(age = as.numeric(as.character(as.data.frame(m(swo.stk.l)[, 1])$age)),
+             M   = as.data.frame(m(swo.stk.l)[, 1])$data,
+             Type = "Lorenzen M")
+)
+
+p3 <- ggplot(m_df, aes(x = age, y = M, color = Type)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 1.6) +
+  scale_color_manual(values = c("Constant M" = "#d7191c", "Lorenzen M" = "#fdae61")) +            
+  labs(title = "Natural Mortality (M)", x = "Age", y = "M", color = NULL) +
+  theme_bw(base_size = 8.5) +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = c(0:9))
+
+(p1 | (p2 / p3)) + plot_layout(widths = c(1.3, 1))
+```
+
+### 2.2 Model Specifications
+
+The two primary candidate runs cover the period 1985–2024 using the identical model structure, differing only in their natural mortality vectors.
+
+The fishing mortality ($F$) submodel includes a tensor product interaction (`ti(year, age)`) to accommodate changes in selectivity over time, combined with smoothers for year and age main effects:
+$$F \sim s(\text{year}, k = 20) + s(\text{age}, k = 8) + ti(\text{year, age}, k = c(6, 5))$$
+
+The recruitment ($R$) submodel uses a temporal smoother:
+$$R \sim s(\text{year}, k = 20)$$
+
+For catchability ($q$), constant catchability was assumed for the Greek, Spanish, and Sicilian longlines ($\sim 1$), while a smoother over time ($\sim s(\text{year}, k = 3)$) was applied to the Moroccan and Ligurian indices to account for identified trends.
+
+In addition to the two primary candidate models, two sensitivity analyses were conducted to evaluate the robustness of the assessment to historical data inputs and index selection:
+
+1. **Sensitivity 1 (1978–2024):** This run explores the impact of extending the time series back to 1978, prior to the start of the tuning indices using Constant $M$. The fishing mortality submodel was slightly modified to accommodate the longer time series by increasing the temporal spline knots to $k=25$.
+
+2. **Sensitivity 2 (Extra Indices):** This run maintains the 1985–2024 period and Constant $M$ assumption but incorporates two additional historical abundance indices: Sicilian Gillnet (`SI_GN`) and Ligurian Surface Longline (`LI_SUR`). Catchability for these extra historical indices was modeled as constant ($\sim 1$) for the Sicilian and with a year effect for the Ligurian ($\sim s(\text{year}, k = 5)$).
+
+```{r fit-1985-runs}
+## Run 1: 1985 Constant M
+stk85_c <- replaceZeros(window(swo.stk, start = 1985))
+range(stk85_c)[c('minfbar', 'maxfbar')] <- c(1, 4)
+fmod_85 <- ~ s(year, k = 20) + s(age, k = 8) + ti(year, age, k = c(6, 5))
+srmod   <- ~ s(year, k = 20)
+qmod    <- list(~1, ~s(year, k = 3), ~1, ~s(year, k = 3), ~1)
+
+fit85_c <- sca(stk85_c, idx_use, fmodel = fmod_85, srmodel = srmod, qmodel = qmod)
+a4a85_c <- stk85_c + simulate(fit85_c, nsim = 1000)
+
+## Run 2: 1985 Lorenzen M
+stk85_l <- replaceZeros(window(swo.stk.l, start = 1985))
+range(stk85_l)[c('minfbar', 'maxfbar')] <- c(1, 4)
+fit85_l <- sca(stk85_l, idx_use, fmodel = fmod_85, srmodel = srmod, qmodel = qmod)
+a4a85_l <- stk85_l + simulate(fit85_l, nsim = 1000)
+```
+
+```{r fit-1978-runs}
+## Sensitivity 1: 1978 Constant M
+stk78_c <- replaceZeros(window(swo.stk, start = 1978))
+range(stk78_c)[c('minfbar', 'maxfbar')] <- c(1, 4)
+fmod_78 <- ~ s(year, k = 25) + s(age, k = 8) + ti(year, age, k = c(6, 5))
+
+fit78_c <- sca(stk78_c, idx_use, fmodel = fmod_78, srmodel = srmod, qmodel = qmod)
+a4a78_c <- stk78_c + simulate(fit78_c, nsim = 1000)
+
+## Sensitivity 2: 1985 Constant M - extra indices
+stk_s2 <- replaceZeros(window(swo.stk.l, start = 1985))
+idx_s2 <- readRDS("Robj/swo_bio_idx_std_ext.rds")
+range(stk_s2)[c('minfbar', 'maxfbar')] <- c(1, 4)
+qmod_s2    <- list(~1, ~s(year, k = 5), ~s(year, k = 3), ~1, ~s(year, k = 3), ~1, ~1)
+fit_s2 <- sca(stk_s2, idx_s2, fmodel = fmod_78, srmodel = srmod, qmodel = qmod_s2)
+a4a_s2 <- stk_s2 + simulate(fit_s2, nsim = 1000)
+```
+
+## 3. Results
+
+### 3.1 Stock Trajectories
+
+The estimated trajectories for Recruitment, Spawning Stock Biomass (SSB), Catch, and Fishing Mortality (F averaged over ages 1-4) for the two candidate runs (1985 Constant M and 1985 Lorenzen M) are presented in Figure \@ref(fig:plot-all-comp). 
+
+Both models successfully capture the historical catch trends. The inclusion of the Lorenzen $M$ vector scaled the absolute estimates of recruitment and SSB compared to the constant $M$ assumption, while producing highly correlated relative trends. Because the Lorenzen $M$ assumes higher natural mortality for younger age classes, the model must estimate a much larger recruitment to support the observed catch history of those cohorts. Despite these absolute scaling differences, both models indicate a similar trajectory.
+
+
+```{r plot-all-comp, fig.cap="Trajectory comparison of the Candidate Runs (Constant M vs. Lorenzen M) against the observed catch.", fig.height=4.5}
+plot(FLStocks(
+  `85 Const M`  = a4a85_c,
+  `85 Loren M`  = a4a85_l,
+  `Observed catch` = stk85_c
+)) + ylim(0.01, NA) + theme(legend.position="top")
+```
+
+The resulting time-varying selectivity is evident in the estimated fishing mortality surface, demonstrating that the inclusion of the tensor product effectively allowed the model to adjust age-specific vulnerabilities over time (Figure \@ref(fig:harvest3D)). There is a high F estimated for in the beginning of the time series for the oldest age (age 9).
+
+```{r harvest3D, fig.cap="Fishing mortality at age over time (selectivity surface) for both candidate runs.", fig.height=3.5}
+aa4plot_c <- stk85_c + fit85_c
+aa4plot_l <- stk85_l + fit85_l
+w1 <- wireframe(data ~ age + year, data = as.data.frame(harvest(aa4plot_c)), drape = TRUE,
+          main="F (Constant M)", screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "yellow"))(100))
+w2 <- wireframe(data ~ age + year, data = as.data.frame(harvest(aa4plot_l)), drape = TRUE,
+          main="F (Lorenzen M)", screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "yellow"))(100))
+grid.arrange(w1, w2, ncol = 2)
+```
+
+
+### 3.2 Model Diagnostics: Constant M Candidate Run
+
+To evaluate the goodness-of-fit for the Constant M candidate run, standardized log-residuals were analyzed for both the catch-at-age matrix and the tuning indices. Furthermore, aggregated catch diagnostics were examined to ensure the model accurately predicts total removals.
+
+The standardized residuals for the catch-at-age (Figure \@ref(fig:diag-caa-res)) generally demonstrate that the tensor product in the $F$ submodel captures the bulk of the shifting selectivity over time. However, a distinct non-stationary pattern remains evident in Age 3. The model consistently underestimates Age 3 catches during the early period (1985–1994), characterized by a block of strong positive residuals, before transitioning to slight overestimation (negative residuals) in the most recent decade. This localized residual structure suggests a historical shift in vulnerability or fleet targeting for this specific age class that the current `ti(year, age)` spline constraints are slightly over-smoothing. Despite this, the overall age structure remains stable without severe residual patterns.
+
+```{r diag-caa-res, fig.cap="Standardized log-residuals of catch-at-age for the Constant M candidate run.", fig.height=6}
+res_df <- as.data.frame(residuals(fit85_c, stk85_c, idx_use))
+
+ggplot(subset(res_df, qname == "catch.n"), aes(x = year, y = data)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+  geom_point(aes(color = data > 0), size = 1.5) +
+  scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                     labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+  facet_wrap(~ age, ncol = 3) +
+  labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+  theme_bw() +
+  theme(legend.position = "bottom") + ylim(-3,3)
+```
+
+The CPUE index residuals (Figure \@ref(fig:diag-idx-res)) display acceptable patterns. 
+
+```{r diag-idx-res, fig.cap="Standardized residuals for each CPUE index (Constant M).", fig.height=4.5}
+ggplot(subset(res_df, !qname %in% c("catch.n", "catch")), aes(x = year, y = data)) +              
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+  geom_point(aes(color = data > 0), size = 1.5) +
+  scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                     labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+  facet_wrap(~ qname, ncol = 3) +
+  labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+Finally, the aggregated catch diagnostics (Figure \@ref(fig:aggr-catch)) confirm that the model predicts total removals reliably by decomposing the variance into three distinct statistical components:
+
+1. **Observation Error:** Reflects the inherent noise and sampling variance within the observed catch data.
+2. **Estimation Error:** Represents the structural uncertainty of the model's fitted parameters (i.e., the variance of the expected values).
+3. **Prediction Error:** The convolution of both observation and estimation errors, representing the total uncertainty bounds of the model's predictions.
+
+Both estimation and prediction errors remain stationary over the time series, lacking any severe divergence or funneling. This confirms that the variance does not systematically inflate in recent years and that the model is statistically consistent in scaling the total catch in weight.
+
+
+```{r aggr-catch, fig.cap="Aggregated catch diagnostics for the Constant M candidate run, detailing the separated variance components (observation, estimation, and prediction errors) and the standardized aggregated residuals.", fig.height=5}
+cd <- computeCatchDiagnostics(fit85_c, stk85_c)
+obs_df <- as.data.frame(cd[["obs"]]); obs_df <- obs_df[, c("year", "data")]
+est_df <- as.data.frame(cd[["est"]]); est_df <- est_df[, c("year", "data")]
+    ## 1. Top-Left: Observation Error (oe)
+    p1 <- plot_catch_err(cd[["oe"]], "Observation Error (oe)")
+  
+    ## 2. Top-Right: Estimation Error (ee)
+    p2 <- plot_catch_err(cd[["ee"]], "Estimation Error (ee)")
+  
+    ## 3. Bottom-Left: Combined Error (oee)
+    p3 <- plot_catch_err(cd[["oee"]], "Prediction Error (oee)")
+  
+    ## 4. Bottom-Right: Standardized Catch Residuals (resstd)
+    res_df <- as.data.frame(cd[["resstd"]])
+    p4 <- ggplot(res_df, aes(x = year, y = data)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.6) +
+      geom_point(aes(color = data > 0), size = 1.8) +
+      geom_smooth(se = FALSE, color = "black", linewidth = 0.6) +
+      scale_color_manual(values = c("TRUE" = "#2b83ba", "FALSE" = "#d7191c")) +
+      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +            
+      theme_bw(base_size = 9) +
+      theme(legend.position = "none")
+  
+    ## Combine into a 2x2 layout
+    (p1 | p2) / (p3 | p4)
+```
+
+
+### 3.3 Retrospective Analysis: Constant M Candidate Run
+
+A 5-year retrospective analysis was conducted to evaluate the stability of the model's terminal estimates. The retrospective trajectories for the Constant M run (Figure \@ref(fig:retro-85-c)) show tight alignment across the peels. Mohn's rho ($\rho$) was calculated for both Spawning Stock Biomass (SSB) and Fishing Mortality (Fbar). The resulting rho values fall well within the acceptable bounds, indicating that the model's terminal estimates are  stable and not prone to severe retrospective revisions. 
+
+
+```{r retro-85-c, fig.cap="Retrospective analysis (5 peels) for the Constant M candidate run.", fig.height=4}
+retro_85c <- retro_runs(stk85_c, idx_use, retro = 5, k_f = 20, k_sr = 20, qmod = qmod)
+mohn_ssb <- icesAdvice::mohn(mohnMatrix(retro_85c, ssb))
+mohn_f   <- icesAdvice::mohn(mohnMatrix(retro_85c, fbar))
+plot(retro_85c) + theme(legend.position = "none") +
+  labs(subtitle = sprintf("Mohn's rho: SSB = %.3f  |  Fbar = %.3f", mohn_ssb, mohn_f))
+```
+
+<!-- =============Lorenzen diagnostics======================= -->
+
+### 3.4 Model Diagnostics: Lorenzen M Candidate Run
+
+To verify that introducing the age-dependent Lorenzen natural mortality vector did not degrade the model fit, the diagnostic suite is repeated for the Lorenzen M run (`fit85_l`). 
+
+The standardized log-residuals for catch-at-age (Figure \@ref(fig:diag-caa-res-l)) and the CPUE tuning indices (Figure \@ref(fig:diag-idx-res-l)) are nearly indistinguishable from the Constant M run. The Age 3 positive pattern in the beginning of the time series is persistent also in this run.
+
+```{r diag-caa-res-l, fig.cap="Standardized log-residuals of catch-at-age for the Lorenzen M candidate run.", fig.height=4.5}
+res_df_l <- as.data.frame(residuals(fit85_l, stk85_l, idx_use))
+
+ggplot(subset(res_df_l, qname == "catch.n"), aes(x = year, y = data)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+  geom_point(aes(color = data > 0), size = 1.5) +
+  scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c")) +
+  facet_wrap(~ age, ncol = 3) +
+  labs(x = "Year", y = "Standardized Residuals") +
+  theme_bw() + theme(legend.position = "none") + ylim(-3,3)
+```
+
+```{r diag-idx-res-l, fig.cap="Standardized residuals for each CPUE index (Lorenzen M).", fig.height=4.5}
+ggplot(subset(res_df_l, !qname %in% c("catch.n", "catch")), aes(x = year, y = data)) +              
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+  geom_point(aes(color = data > 0), size = 1.5) +
+  scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                     labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+  facet_wrap(~ qname, ncol = 3) +
+  labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+```{r aggr-catch-l, fig.cap="Aggregated catch diagnostics for the Lorenzen M candidate run, detailing the separated variance components (observation, estimation, and prediction errors) and the standardized aggregated residuals.", fig.height=5}
+cd <- computeCatchDiagnostics(fit85_l, stk85_l)
+obs_df <- as.data.frame(cd[["obs"]]); obs_df <- obs_df[, c("year", "data")]
+est_df <- as.data.frame(cd[["est"]]); est_df <- est_df[, c("year", "data")]
+    ## 1. Top-Left: Observation Error (oe)
+    p1 <- plot_catch_err(cd[["oe"]], "Observation Error (oe)")
+  
+    ## 2. Top-Right: Estimation Error (ee)
+    p2 <- plot_catch_err(cd[["ee"]], "Estimation Error (ee)")
+  
+    ## 3. Bottom-Left: Combined Error (oee)
+    p3 <- plot_catch_err(cd[["oee"]], "Prediction Error (oee)")
+  
+    ## 4. Bottom-Right: Standardized Catch Residuals (resstd)
+    res_df <- as.data.frame(cd[["resstd"]])
+    p4 <- ggplot(res_df, aes(x = year, y = data)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.6) +
+      geom_point(aes(color = data > 0), size = 1.8) +
+      geom_smooth(se = FALSE, color = "black", linewidth = 0.6) +
+      scale_color_manual(values = c("TRUE" = "#2b83ba", "FALSE" = "#d7191c")) +
+      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +            
+      theme_bw(base_size = 9) +
+      theme(legend.position = "none")
+  
+    ## Combine into a 2x2 layout
+    (p1 | p2) / (p3 | p4)
+```
+
+### 3.5 Retrospective Analysis: Lorenzen M Candidate Run
+
+```{r retro-85-l, fig.height=4.1}
+retro_85l <- retro_runs(stk85_l, idx_use, retro = 5, k_f = 20, k_sr = 20, qmod = qmod)
+mohn_ssb <- icesAdvice::mohn(mohnMatrix(retro_85l, ssb))
+mohn_f   <- icesAdvice::mohn(mohnMatrix(retro_85l, fbar))
+plot(retro_85l) + theme(legend.position = "none")+
+      labs(
+        subtitle = sprintf("Mohn's rho: SSB = %.3f  |  Fbar = %.3f", mohn_ssb, mohn_f)
+      )
+```
+
+### 4. Reference Points and Stock Status for both Candidate runs
+
+Biological reference points based on MSY were calculated utilizing a Beverton-Holt stock-recruitment relationship (steepness constrained by fixing $b=100$) (Table 1). Kobe phase plots (Figure \@ref(fig:kobe)) summarize the temporal evolution of the stock relative to MSY benchmarks. Both candidate runs suggest that current fishing mortality is hovering near or below $F_{MSY}$, and biomass is approaching or at $B_{MSY}$.
+
+```{r refpts-calc}
+calc_refpts <- function(stk, fit) {
+  aa_stk <- stk + fit
+  landings.n(aa_stk) <- catch.n(aa_stk)
+  landings.wt(aa_stk) <- catch.wt(aa_stk)
+  landings(aa_stk)   <- catch(aa_stk)
+  discards(aa_stk)   <- 0
+  discards.n(aa_stk) <- 0
+  discards.wt(aa_stk) <- 0
+  srr <- fmle(as.FLSR(aa_stk, model = "bevholt"), control = list(trace = 0), fixed = list(b = 100))
+  brp_obj <- brp(FLBRP(aa_stk, sr = srr))
+  refpts(brp_obj)
+}
+
+rp_85c <- calc_refpts(stk85_c, fit85_c)
+rp_85l <- calc_refpts(stk85_l, fit85_l)
+aa4ref_c <- stk85_c+fit85_c
+aa4ref_l <- stk85_l+fit85_l
+
+ref_table <- data.frame(
+  Metric = c("FMSY", "BMSY (t)", "F2024", "B2024 (t)", "F2024 / FMSY", "B2024 / BMSY"),
+  `1985 Constant M` = round(c(
+    as.numeric(rp_85c['msy', 'harvest']),
+    as.numeric(rp_85c['msy', 'biomass']),
+    as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]]),
+    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]]),
+    as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]] / rp_85c['msy', 'harvest']),
+    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]] / rp_85c['msy', 'biomass'])
+  ), 3),
+  `1985 Lorenzen M` = round(c(
+    as.numeric(rp_85l['msy', 'harvest']),
+    as.numeric(rp_85l['msy', 'biomass']),
+    as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]]),
+    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]]),
+    as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]] / rp_85l['msy', 'harvest']),
+    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]] / rp_85l['msy', 'biomass'])
+  ), 3),
+  check.names = FALSE
+)
+
+kable(ref_table, row.names = FALSE, booktabs = TRUE, caption = "Table 1: Current stock status and MSY-based reference points for the candidate runs.") %>%
+  kable_styling(latex_options = "hold_position")
+```
+
+```{r kobe-c, fig.cap="Kobe phase plot for the Constant M and trajectories of SSB, F and B.", fig.height=4.5}
+p1 <- plot_kobe(a4a85_c, rp_85c, use_ssb = FALSE, title = "Constant M")   
+p2 <- plot_status(stk85_c, fit85_c, a4a85_c)
+p1 + p2
+```
+
+```{r kobe-l, fig.cap="Kobe phase plot for the Lorenzen M and trajectories of SSB, F and B.", fig.height=4.5}
+p1 <- plot_kobe(a4a85_l, rp_85l, use_ssb = FALSE, title = "Constant M")   
+p2 <- plot_status(stk85_l, fit85_l, a4a85_l)
+p1 + p2
+```
+
+## 5. Sensitivity Runs
+
+To evaluate the robustness of the assessment to historical data truncation and index selection, two sensitivity runs were evaluated. Sensitivity 1 extended the historical period back to 1978, while Sensitivity 2 maintained the 1985 start year but incorporated two additional historical tuning indices (Sicilian Gillnet and Ligurian Surface Longline).
+
+The trajectories of both sensitivity runs (Figure @ref(fig:sens-plots)) align closely with the 1985 baseline candidate run. The inclusion of the early historical catch (1978-1984) and the extra indices shifts the absolute scale of the historical biomass slightly, but the terminal estimates of fishing mortality and stock depletion remain highly consistent. This indicates that the 1985 truncation and the selection of the 5 core indices provide a stable and representative baseline.
+
+```{r sens-plots, fig.height = 5}
+plot(FLStocks(`Constant M (1985)` = a4a85_c, 
+              `Sens 1 (1978)` = a4a78_c, 
+              `Sens 2 (Extra Idx)` = a4a_s2)) + 
+  theme(legend.position = "top")
+```
+
+
+## 6. Discussion
+
+The exploratory models address specific structural constraints present in the continuity run by enabling flexible selectivity tracking and examining an alternative biological scenario for natural mortality. Incorporating the tensor product interaction resolves residual patterns in catch-at-age compared to simple additive age-year structures, allowing for shifting fleet selection to be modeled statistically rather than fixed a priori. 
+
+## References
+
+Jardim, E., Millar, C. P., Mosqueira, I., Scott, F., Osio, G. C., Ferretti, M., Alzorriz, N., Orio, A. (2015). What if stock assessment is as simple as a linear model? The a4a initiative. ICES Journal of Marine Science, 72(1), 232-236.
+
+Mantopoulou-Palouka, D., Tserpes, G. (2020). Assessment of the Mediterranean Swordfish stock by means of Assessment for All. Collect. Vol. Sci. Pap. ICCAT, 77(3): 482-507.

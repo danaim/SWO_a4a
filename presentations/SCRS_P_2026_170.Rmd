@@ -1,0 +1,546 @@
+---
+title: "Assessing Mediterranean Swordfish Using the Assessment for All (a4a) Model"
+shorttitle: "Mediterranean swordfish a4a exploratory runs"
+author: "D. Mantopoulou-Palouka, G. Tserpes, A. Kimoto, E. Jardim"
+institute: ""
+date: "SCRS/2026/170"
+output:
+  beamer_presentation:
+    latex_engine: xelatex
+    theme: "Copenhagen"
+    colortheme: "seahorse"
+    slide_level: 2
+header-includes:
+  - \usepackage{fontspec}
+  - \setmainfont{TeX Gyre Termes}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+---
+
+```{r setup, include=FALSE}
+## Knit from project root so paths resolve correctly
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+knitr::opts_chunk$set(
+  echo = FALSE, warning = FALSE, message = FALSE,
+  fig.width = 7, fig.height = 4.3, dpi = 300,
+  cache = TRUE, cache.lazy = FALSE
+)
+```
+
+```{r libs, cache=FALSE}
+suppressMessages({
+  library(FLCore)
+  library(FLa4a)
+  library(FLBRP)
+  library(ggplotFL)
+  library(knitr)
+  library(kableExtra)
+  library(gridExtra)
+})
+theme_set(theme_bw(base_size = 9))
+source("analysis/plot_functions.R")
+## Helper for custom retro with dynamic F/SR submodels
+retro_runs <- function(stk, idxs, retro = 5, kfrac = 0.3, k_f = 20, k_sr = 20, qmod) {
+  lst0 <- split(0:retro, 0:retro)
+  lst0 <- lapply(lst0, function(x) {
+    yr <- range(stk)["maxyear"] - x
+    stk_sub <- window(stk, end = yr)
+    idx_sub <- FLIndices(window(idxs, end = yr))
+    KY <- unname(k_f - floor(x * kfrac))
+    KZ <- unname(k_sr - floor(x * kfrac))
+    fmod_sub <- as.formula(substitute(~ s(year, k = KY) + s(age, k = 8) + ti(year, age, k = c(6, 5)), list(KY = KY)))
+    srmod_sub <- as.formula(substitute(~ s(year, k = KZ), list(KZ = KZ)))
+    fit_sub <- sca(stk_sub, idx_sub, fmodel = fmod_sub, srmodel = srmod_sub, qmodel = qmod)
+    stk_sub + fit_sub
+  })
+  FLStocks(lst0)
+}
+```
+
+```{r load-data}
+swo.stk   <- readRDS("Robj/swo_stk.rds")
+swo.stk.l <- readRDS("Robj/swo_stk_loren.rds")
+swo.idx   <- readRDS("Robj/swo_bio_idx_std.rds")
+
+## Use standardized longline indices (excluding index 2)
+idx_use <- swo.idx[-2]
+for (i in seq_along(idx_use)) {
+  range(idx_use[[i]], c("min", "max")) <- c(1, 4)
+  units(index(idx_use[[i]])) <- "t"
+}
+```
+
+## Background
+
+- **Context:** Following the update of the 2020 baseline $\alpha4\alpha$ assessment through 2024, structural enhancements were investigated to address historical data coverage and biological realism. The new catch at age matrix support using a plus group at age 9.
+- **Key Objectives:**
+  - **Temporal Scope:** Evaluate sensitivity to the time-series start year by comparing the truncated period (**1985–2024**) against the extended historical series (**1978–2024**).
+  - **Natural Mortality ($M$):** Assess the impact of assuming a **Constant $M$** versus an age-dependent **Lorenzen $M$** vector.
+  - **Fishing Mortality Dynamics:** Incorporate a tensor product interaction (`ti(year, age)`) to capture time-varying selectivity across years and age classes.
+
+## Input Data and Assumptions
+                                                       
+Catch at age 0-9 with plus group set at 9
+
+```{r inputData1}
+    p1 <- ggplot(as.data.frame(catch.n(swo.stk)), 
+                 aes(x = as.numeric(as.character(age)), 
+                     y = data, 
+                     color = as.factor(floor(as.numeric(as.character(year)) / 10) * 10),              
+                     group = as.factor(year))) +
+      geom_line(alpha = 0.85) +
+      geom_vline(xintercept = c(1, 2, 3), linetype = "dotted") +
+      scale_color_viridis_d(option = "turbo") +
+      labs(title = "Catch-at-Age", x = "Age", y = "Numbers", color = "Decade") +
+      theme_bw(base_size = 9) +
+      theme(legend.position = "bottom")+
+      scale_x_continuous(breaks = c(0:9))
+  
+    
+    mat_df <- as.data.frame(mat(swo.stk)[, 1])
+    p2 <- ggplot(mat_df, aes(x = as.numeric(as.character(age)), y = data)) +
+      geom_line(color = "#2b83ba", linewidth = 0.9) +
+      geom_point(color = "#2b83ba", size = 1.6) +
+      labs(title = "Maturity Ogive", x = "Age", y = "Proportion Mature") +
+      theme_bw(base_size = 8.5)+
+      scale_x_continuous(breaks = c(0:9))
+  
+    
+    m_df <- rbind(
+      data.frame(age = as.numeric(as.character(as.data.frame(m(swo.stk)[, 1])$age)),
+                 M   = as.data.frame(m(swo.stk)[, 1])$data,
+                 Type = "Constant M"),
+      data.frame(age = as.numeric(as.character(as.data.frame(m(swo.stk.l)[, 1])$age)),
+                 M   = as.data.frame(m(swo.stk.l)[, 1])$data,
+                 Type = "Lorenzen M")
+    )
+  
+    p3 <- ggplot(m_df, aes(x = age, y = M, color = Type)) +
+      geom_line(linewidth = 0.9) +
+      geom_point(size = 1.6) +
+      scale_color_manual(values = c("Constant M" = "#d7191c", "Lorenzen M" = "#fdae61")) +            
+      labs(title = "Natural Mortality (M)", x = "Age", y = "M", color = NULL) +
+      theme_bw(base_size = 8.5) +
+      theme(legend.position = "bottom")+
+      scale_x_continuous(breaks = c(0:9))
+  
+    ## Combined Layout
+    (p1 | (p2 / p3)) + plot_layout(widths = c(1.3, 1))
+
+```
+
+<!-- ## Input Data and Assumptions -->
+
+```{r inputData2, fig.height = 4.1}
+
+```
+
+## Summary of Candidate & Sensitivity Runs
+
+```{r runs-table}
+runs_df <- data.frame(
+  Run = c("Run 1 ", "Run 2 ", 
+          "Sensitivity 1 ", "Sensitivity 2 "),
+  Period = c("1985–2024", "1985–2024", "1978–2024", "1985–2024"),
+  `M Assumption` = c("Constant M", "Lorenzen M", "Constant M", "Constant M"),
+  `Fbar Range` = c("Ages 1–4", "Ages 1–4", "Ages 1–4", "Ages 1–4"),
+  `Indices` = c("5 indices", "5 indices", "5 indices", "5 indices + SI_GN + LI_SUR"),
+  check.names = FALSE
+)
+kable(runs_df, row.names = FALSE, booktabs = TRUE)
+```
+
+## Model Specifications & Sub-models
+
+```{r submodels-table}
+submods_df <- data.frame(
+  Component = c("F sub-model (1985 runs)", 
+                # "F sub-model (1978 runs)", 
+                "SR sub-model", "Q sub-model (GR, SP, SI)", 
+                "Q sub-model (LI, MO)"),
+  Specification = c("~ s(year, k = 20) + s(age, k = 8) + ti(year, age, k = c(6, 5))",
+                    # "~ s(year, k = 25) + s(age, k = 8) + ti(year, age, k = c(6, 5))",
+                    "~ s(year, k = 20)",
+                    "~ 1 (Constant catchability)",
+                    "~ s(year, k = 3) (Time-varying catchability)"),
+  check.names = FALSE
+)
+kable(submods_df, row.names = FALSE, booktabs = TRUE)
+```
+
+```{r fit-1985-runs}
+## Run 1: 1985 Constant M
+stk85_c <- replaceZeros(window(swo.stk, start = 1985))
+range(stk85_c)[c('minfbar', 'maxfbar')] <- c(1, 4)
+fmod_85 <- ~ s(year, k = 20) + s(age, k = 8) + ti(year, age, k = c(6, 5))
+srmod   <- ~ s(year, k = 20)
+qmod    <- list(~1, ~s(year, k = 3), ~1, ~s(year, k = 3), ~1)
+
+fit85_c <- sca(stk85_c, idx_use, fmodel = fmod_85, srmodel = srmod, qmodel = qmod)
+a4a85_c <- stk85_c + simulate(fit85_c, nsim = 1000)
+
+save(stk85_c,fit85_c, idx_use, file = "Robj/input4mcmc.Rdata")
+
+## Run 2: 1985 Lorenzen M
+stk85_l <- replaceZeros(window(swo.stk.l, start = 1985))
+range(stk85_l)[c('minfbar', 'maxfbar')] <- c(1, 4)
+fit85_l <- sca(stk85_l, idx_use, fmodel = fmod_85, srmodel = srmod, qmodel = qmod)
+a4a85_l <- stk85_l + simulate(fit85_l, nsim = 1000)
+```
+
+```{r fit-1978-runs}
+## Sensitivity 1: 1978 Constant M
+stk78_c <- replaceZeros(window(swo.stk, start = 1978))
+range(stk78_c)[c('minfbar', 'maxfbar')] <- c(1, 4)
+fmod_78 <- ~ s(year, k = 25) + s(age, k = 8) + ti(year, age, k = c(6, 5))
+
+fit78_c <- sca(stk78_c, idx_use, fmodel = fmod_78, srmodel = srmod, qmodel = qmod)
+a4a78_c <- stk78_c + simulate(fit78_c, nsim = 1000)
+
+## Sensitivity 2: 1985 Constant M - extra indices
+stk_s2 <- replaceZeros(window(swo.stk.l, start = 1985))
+idx_s2 <- readRDS("Robj/swo_bio_idx_std_ext.rds")
+range(stk_s2)[c('minfbar', 'maxfbar')] <- c(1, 4)
+qmod_s2    <- list(~1, ~s(year, k = 5), ~s(year, k = 3), ~1, ~s(year, k = 3), ~1, ~1)
+fit_s2 <- sca(stk_s2, idx_s2, fmodel = fmod_78, srmodel = srmod, qmodel = qmod_s2)
+a4a_s2 <- stk_s2 + simulate(fit_s2, nsim = 1000)
+```
+
+## Trajectory Comparison: 1985 Series (Constant vs. Lorenzen M)
+
+```{r plot-1985-comp, fig.height=4.2}
+plot(FLStocks(`1985 Constant M` = a4a85_c, `1985 Lorenzen M` = a4a85_l))+ylim(0.01,NA)
+```
+
+<!-- ## Trajectory Comparison: 1978 Series (Constant vs. Lorenzen M) -->
+
+```{r plot-1978-comp, fig.height=4.2}
+# plot(FLStocks(`1978 Constant M` = a4a78_c, `1978 Lorenzen M` = a4a78_l))
+```
+
+## Candidate Runs vs. Observed Catch
+
+```{r plot-all-comp, fig.height=4.2}
+# plot(FLStocks(
+#   `85 Const M`  = a4a85_c,
+#   `85 Loren M`  = a4a85_l,
+#   `78 Const M`  = a4a78_c,
+#   `78 Loren M`  = a4a78_l
+# ))
+plot(FLStocks(
+  `85 Const M`  = a4a85_c,
+  `85 Loren M`  = a4a85_l,
+  `Catch` = stk85_c
+)) + ylim(0.01,NA)
+```
+
+# Diagnostics - Constant M
+
+## Catch-at-Age Standardized Residuals
+
+```{r diag-caa-res, fig.height=5.2}
+res85_c <- residuals(fit85_c, stk85_c, idx_use)
+# res_df  <- as.data.frame(res85_c)
+# ggplot(subset(res_df, qname == "catch.n"), aes(year, data)) +
+#   geom_point(alpha = 0.6) +
+#   geom_smooth(se = FALSE, color = "blue", size = 0.7) +
+#   facet_wrap(~age, ncol = 3, scales = "free_y") +
+#   labs(x = "Year", y = "Standardized Residuals")
+
+    res_df <- as.data.frame(residuals(fit85_c, stk85_c, idx_use))
+  
+    ggplot(subset(res_df, qname == "catch.n"), aes(x = year, y = data)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+      geom_point(aes(color = data > 0), size = 1.5) +
+      scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                         labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+      facet_wrap(~ age, ncol = 3) +
+      labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+      theme_bw() +
+      theme(legend.position = "bottom") + ylim(-3,3)
+
+```
+
+## Standardized CPUE Index Residuals
+```{r diag-idx-res, fig.height=5.2}
+# ggplot(subset(res_df, !qname %in% c("catch.n", "catch")), aes(year, data)) +
+#   geom_point(alpha = 0.7) +
+#   geom_smooth(se = FALSE, color = "darkred", size = 0.7) +
+#   facet_wrap(~qname, ncol = 3) +
+#   labs(x = "Year", y = "Standardized Residuals")
+
+    ggplot(subset(res_df, !qname %in% c("catch.n", "catch")), aes(x = year, y = data)) +              
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+      geom_point(aes(color = data > 0), size = 1.5) +
+      scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                         labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+      facet_wrap(~ qname, ncol = 3) +
+      labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+      theme_bw() +
+      theme(legend.position = "bottom")
+
+```
+
+## Catch-at-Age Bubble Plot
+
+```{r diag-bubbles, fig.height=5}
+bubbles(res85_c)
+```
+
+## Aggregated catch diagnostics
+
+```{r aggr-catch, fig.height=4}
+cd <- computeCatchDiagnostics(fit85_c, stk85_c)
+obs_df <- as.data.frame(cd[["obs"]]); obs_df <- obs_df[, c("year", "data")]
+est_df <- as.data.frame(cd[["est"]]); est_df <- est_df[, c("year", "data")]
+    ## 1. Top-Left: Observation Error (oe)
+    p1 <- plot_catch_err(cd[["oe"]], "Observation Error (oe)")
+  
+    ## 2. Top-Right: Estimation Error (ee)
+    p2 <- plot_catch_err(cd[["ee"]], "Estimation Error (ee)")
+  
+    ## 3. Bottom-Left: Combined Error (oee)
+    p3 <- plot_catch_err(cd[["oee"]], "Prediction Error (oee)")
+  
+    ## 4. Bottom-Right: Standardized Catch Residuals (resstd)
+    res_df <- as.data.frame(cd[["resstd"]])
+    p4 <- ggplot(res_df, aes(x = year, y = data)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.6) +
+      geom_point(aes(color = data > 0), size = 1.8) +
+      geom_smooth(se = FALSE, color = "black", linewidth = 0.6) +
+      scale_color_manual(values = c("TRUE" = "#2b83ba", "FALSE" = "#d7191c")) +
+      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +            
+      theme_bw(base_size = 9) +
+      theme(legend.position = "none")
+  
+    ## Combine into a 2x2 layout
+    (p1 | p2) / (p3 | p4)
+```
+
+## Observed vs. Fitted Stock - Catch (85 Const M)
+
+```{r diag-obs-fit, fig.height=5.5}
+plot(fit85_c, stk85_c) 
+```
+
+## Retrospective Analysis (Peels = 5)
+
+```{r retro-85-c, fig.height=4.1}
+retro_85c <- retro_runs(stk85_c, idx_use, retro = 5, k_f = 20, k_sr = 20, qmod = qmod)
+mohn_ssb <- icesAdvice::mohn(mohnMatrix(retro_85c, ssb))
+mohn_f   <- icesAdvice::mohn(mohnMatrix(retro_85c, fbar))
+plot(retro_85c) + theme(legend.position = "none")+
+      labs(
+        subtitle = sprintf("Mohn's rho: SSB = %.3f  |  Fbar = %.3f", mohn_ssb, mohn_f)
+      )
+```
+
+## Stock status
+
+```{r stockS-85-c, fig.heigt = 5.5}
+plot_status(stk85_c, fit85_c, a4a85_c) + labs(subtitle = "Beverton-Holt SRR | b fixed at 100")
+```
+
+<!-- ================================================================================================== -->
+
+# Diagnostics - Lorenzen M
+
+## Catch-at-Age Standardized Residuals
+```{r diag-caa-res-l, fig.height=5.2}
+res85_l <- residuals(fit85_l, stk85_l, idx_use)
+
+    res_df <- as.data.frame(residuals(fit85_l, stk85_l, idx_use))
+  
+    ggplot(subset(res_df, qname == "catch.n"), aes(x = year, y = data)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+      geom_point(aes(color = data > 0), size = 1.5) +
+      scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                         labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+      facet_wrap(~ age, ncol = 3) +
+      labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+      theme_bw() +
+      theme(legend.position = "bottom") + ylim(-3,3)
+
+```
+
+## Standardized CPUE Index Residuals
+
+```{r diag-idx-res-l, fig.height=5.2}
+
+    ggplot(subset(res_df, !qname %in% c("catch.n", "catch")), aes(x = year, y = data)) +              
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+      geom_point(aes(color = data > 0), size = 1.5) +
+      scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                         labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+      facet_wrap(~ qname, ncol = 3) +
+      labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+      theme_bw() +
+      theme(legend.position = "bottom")
+
+```
+
+
+## Catch-at-Age Bubble Plot
+
+```{r diag-bubbles-l, fig.height=5}
+bubbles(res85_l)
+```
+
+## Aggregated catch diagnostics
+
+```{r aggr-catch-l, fig.height=4}
+cd <- computeCatchDiagnostics(fit85_l, stk85_l)
+obs_df <- as.data.frame(cd[["obs"]]); obs_df <- obs_df[, c("year", "data")]
+est_df <- as.data.frame(cd[["est"]]); est_df <- est_df[, c("year", "data")]
+    ## 1. Top-Left: Observation Error (oe)
+    p1 <- plot_catch_err(cd[["oe"]], "Observation Error (oe)")
+  
+    ## 2. Top-Right: Estimation Error (ee)
+    p2 <- plot_catch_err(cd[["ee"]], "Estimation Error (ee)")
+  
+    ## 3. Bottom-Left: Combined Error (oee)
+    p3 <- plot_catch_err(cd[["oee"]], "Prediction Error (oee)")
+  
+    ## 4. Bottom-Right: Standardized Catch Residuals (resstd)
+    res_df <- as.data.frame(cd[["resstd"]])
+    p4 <- ggplot(res_df, aes(x = year, y = data)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.6) +
+      geom_point(aes(color = data > 0), size = 1.8) +
+      geom_smooth(se = FALSE, color = "black", linewidth = 0.6) +
+      scale_color_manual(values = c("TRUE" = "#2b83ba", "FALSE" = "#d7191c")) +
+      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +            
+      theme_bw(base_size = 9) +
+      theme(legend.position = "none")
+  
+    ## Combine into a 2x2 layout
+    (p1 | p2) / (p3 | p4)
+```
+
+## Observed vs. Fitted Stock - Catch
+
+```{r diag-obs-fit-l, fig.height=5.5}
+plot(fit85_l, stk85_l)
+```
+
+## Retrospective Analysis (Peels = 5)
+
+```{r retro-85-l, fig.height=4.1}
+retro_85l <- retro_runs(stk85_l, idx_use, retro = 5, k_f = 20, k_sr = 20, qmod = qmod)
+mohn_ssb <- icesAdvice::mohn(mohnMatrix(retro_85l, ssb))
+mohn_f   <- icesAdvice::mohn(mohnMatrix(retro_85l, fbar))
+plot(retro_85l) + theme(legend.position = "none")+
+      labs(
+        subtitle = sprintf("Mohn's rho: SSB = %.3f  |  Fbar = %.3f", mohn_ssb, mohn_f)
+      )
+```
+
+## Stock status
+
+```{r stockS-85-l, fig.heigt = 5.5}
+plot_status(stk85_l, fit85_l, a4a85_l)+ labs(subtitle = "Beverton-Holt SRR | b fixed at 100")
+```
+
+
+# Candidate runs comparison
+
+## Fishing mortality 3D plots
+
+```{r harvest3D, fig.height=4}
+aa4plot_c <- stk85_c + fit85_c
+aa4plot_l <- stk85_l + fit85_l
+w1 <- wireframe(data ~ age + year, data = as.data.frame(harvest(aa4plot_c)), drape = TRUE,
+          main="Fishing mortality", screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "yellow"))(100))
+w2 <- wireframe(data ~ age + year, data = as.data.frame(harvest(aa4plot_l)), drape = TRUE,
+          main="Fishing mortality", screen = list(x = -90, y=-45),
+          col.regions = colorRampPalette(c("blue", "yellow"))(100))
+grid.arrange(w1,w2,ncol = 2)
+```
+
+## Stock Status & Reference Points 
+### Candidate Runs Comparison
+
+```{r refpts-calc}
+calc_refpts <- function(stk, fit) {
+  aa_stk <- stk + fit
+  landings.n(aa_stk) <- catch.n(aa_stk)
+  landings.wt(aa_stk) <- catch.wt(aa_stk)
+  landings(aa_stk)   <- catch(aa_stk)
+  discards(aa_stk)   <- 0
+  discards.n(aa_stk) <- 0
+  discards.wt(aa_stk) <- 0
+  srr <- fmle(as.FLSR(aa_stk, model = "bevholt"), control = list(trace = 0), fixed = list(b = 100))
+  brp_obj <- brp(FLBRP(aa_stk, sr = srr))
+  refpts(brp_obj)
+}
+
+rp_85c <- calc_refpts(stk85_c, fit85_c)
+rp_85l <- calc_refpts(stk85_l, fit85_l)
+aa4ref_c <- stk85_c+fit85_c
+aa4ref_l <- stk85_l+fit85_l
+
+ref_table <- data.frame(
+  Metric = c("FMSY", "BMSY (t)", "F2024", "B2024 (t)", "F2024 / FMSY", "B2024 / BMSY"),
+  `1985 Constant M` = round(c(
+    as.numeric(rp_85c['msy', 'harvest']),
+    as.numeric(rp_85c['msy', 'biomass']),
+    as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]]),
+    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]]),
+    as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]] / rp_85c['msy', 'harvest']),
+    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]] / rp_85c['msy', 'biomass'])
+  ), 3),
+  `1985 Lorenzen M` = round(c(
+    as.numeric(rp_85c['msy', 'harvest']),
+    as.numeric(rp_85c['msy', 'biomass']),
+    as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]]),
+    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]]),
+    as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]] / rp_85l['msy', 'harvest']),
+    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]] / rp_85l['msy', 'biomass'])
+  ), 3),
+  check.names = FALSE
+)
+
+kable(ref_table, row.names = FALSE, booktabs = TRUE)
+```
+
+## Stock Status Trajectories (F/FMSY vs. B/BMSY)
+
+```{r kobe-85-c, fig.heigt = 5.5}
+p1 <- plot_kobe(a4a85_c, rp_85c, use_ssb = FALSE, title = "Kobe Plot: 1985 Constant M")   
+p2 <- plot_kobe(a4a85_l, rp_85l, use_ssb = FALSE, title = "Kobe Plot: 1985 Lorenzen M")  
+p1 + p2
+```
+
+## Sensitivity runs
+
+```{r sens-plots, fig.height = 5.5}
+p1 <- plot(FLStocks(Sensitivity1 = a4a78_c, Sensitivity2 = a4a_s2))+theme(legend.position = "top")
+p2 <- plot(FLStocks(Sensitivity1 = a4a78_c, Sensitivity2 = a4a_s2,
+Candidate1 = a4a85_c, Candidate2 = a4a85_l))+theme(legend.position = "top")
+p1 + p2
+```
+
+## Sensitivity runs - Stock status
+
+```{r sesns-plots-status}
+p1 <- plot_status(stk = stk78_c,fit = fit78_c, a4a.stk = a4a78_c)
+p2 <- plot_status(stk = stk_s2,fit = fit_s2, a4a.stk = a4a_s2)
+p1+p2
+```
+
+<!-- ## Conclusions & Recommendations for SCRS -->
+
+<!-- ## Conclusions -->
+
+<!-- - **Model Stability:** Incorporating the tensor product interaction `ti(year, age)` resolves residual patterns in catch-at-age compared to additive age-year structures.
+- **Natural Mortality:** Lorenzen age-varying $M$ scales absolute abundance estimates higher for younger age classes while preserving relative trends and fishing mortality trajectories.
+- **Time-Series Scope:** Results starting in **1985** display robust diagnostic performance and consistency with standardized longline abundance indices. -->
+
+<!-- ## Thank you -->
+

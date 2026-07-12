@@ -1,0 +1,104 @@
+---
+title: '**Assessing Mediterranean Swordfish Using the Assessment for All (a4a) Model \vspace{0.1cm}**'
+documentclass: article
+author: "\\small D. Mantopoulou-Palouka$^1$, G. Tserpes$^2$, A. Kimoto$^3$, E. Jardim$^4$"
+date: ''
+output:
+  bookdown::pdf_document2:
+    toc: false
+    number_sections: false
+    latex_engine: xelatex
+mainfont: Caladea
+fontsize: 10pt
+geometry: a4paper, left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm
+header-includes:
+- \usepackage{titling}
+- \pretitle{\begin{center}\large\bfseries}
+- \posttitle{\end{center}}
+- \usepackage{soul,color,colortbl,fancyhdr}
+- \usepackage{caption}
+- \usepackage[singlelinecheck=false]{caption}
+- \usepackage[document]{ragged2e}
+---
+
+\footnotetext[1]{Joint Research Center. Corresponding author: Danai.MANTOPOULOU-PALOUKA@ec.europa.eu}
+\footnotetext[2]{Hellenic Center for Marine Research, Heraklion, Greece}
+\footnotetext[3]{ International Commission for the Conservation of Atlantic Tunas, Madrid Spain}
+\footnotetext[4]{Portuguese Institute for Sea and Atmosphere, Lisbon, Portugal}
+
+\pagestyle{fancy}
+\fancypagestyle{plain}{\pagestyle{fancy}}
+\fancyhead{}
+\fancyhead[L]{SCRS/2026/169}
+\captionsetup[table]{labelformat=empty}
+
+
+```{r setup, include=FALSE}
+## knit from the project root so that "Robj/..." paths resolve
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+knitr::opts_chunk$set(
+  echo = FALSE, warning = FALSE, message = FALSE,
+  fig.width = 7, fig.height = 4.5, dpi = 300,
+  cache = TRUE, cache.lazy = FALSE
+)
+```
+
+```{r libs, cache=FALSE}
+suppressMessages({
+  library(FLCore)
+  library(FLa4a)
+  library(FLBRP)
+  library(ggplotFL)
+  library(knitr)
+})
+theme_set(theme_bw(base_size = 10))
+```
+
+```{r load-data}
+## 2020 assessment inputs (ages 0-5, 1985-2018, plus group 5)
+swo.stk  <- readRDS("Robj/swo_stk.rds")
+swo.idx  <- readRDS("Robj/swo_bio_idx_std.rds")
+swo.stk.l <- readRDS("Robj/swo_stk_loren.rds") # lorenzen
+source("analysis/plot_functions.R")
+```
+
+## Input data
+
+
+```{r caaPlot, fig.cap = "Catch at age (ages 0-9, 1972-2024)"}
+ggplot(as.data.frame(catch.n(swo.stk)), 
+       aes(x = age, 
+           y = data, 
+           color = as.factor(floor(as.numeric(as.character(year)) / 10) * 10), 
+           group = as.factor(year))) +
+  geom_line() +
+  labs(color = "Decade")+
+  scale_color_viridis_d(option = "turbo")+
+  geom_vline(xintercept = c(1,2,3), linetype = 'dotted')
+```
+
+## Candidate runs
+
+### Long time series 
+
+A bit unstable especially age 2 and 3 residuals in the beginning of the time sereis
+
+
+```{r, echo = TRUE}
+stk <- window(swo.stk, start = 1978)
+stk <- replaceZeros(stk)
+range(stk)[c('minfbar','maxfbar')] <- c(1,4) 
+idx <- swo.idx[-2]
+
+#srmod <- ~s(year, k =10, by = as.numeric(year>1987))
+fmod3 <- ~s(year, k = 25) + s(age, k=8) + ti(year, age, k = c(6,3)) + s(year, k =10, by = as.numeric(age==3))
+qmod <- list(~1, ~s(year, k = 3), ~1, ~s(year, k = 3),~1)
+#fit <- sca(stk, idx, fmodel = fmod3, qmodel = qmod, srmodel = srmod)
+fit <- sca(stk, idx, fmodel = fmod3, qmodel = qmod) 
+
+a4a.stk <- stk + simulate(fit, nsim = 1000)
+plot(a4a.stk, stk)+ylim(0.01, NA)
+res <- residuals(fit, stk, idx)
+plot(res)
+plot_status(stk,fit)
+```
