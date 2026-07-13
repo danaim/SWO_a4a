@@ -196,6 +196,13 @@ $$R \sim s(\text{year}, k = 20)$$
 
 For catchability ($q$), constant catchability was assumed for the Greek, Spanish, and Sicilian longlines ($\sim 1$), while a smoother over time ($\sim s(\text{year}, k = 3)$) was applied to the Moroccan and Ligurian indices to account for identified trends.
 
+The observation variance ($vmod$) and initial age structure ($n1mod$) were kept the same as the default settings. 
+<!-- The observation variance ($\sigma^2$) of the catches was modeled using a spline across ages ($\sim s(\text{age}, k = 3)$) assuming no year effect, while the observation variances ($\tau^2$) for all tuning indices were assumed constant ($\sim 1$).  -->
+
+<!-- The population's initial age structure in the first year of the assessment ($N_1$) was estimated using a simple age smoother ($\sim s(\text{age}, k = 3)$). -->
+
+### 2.3 Sensitivity Runs
+
 In addition to the two primary candidate models, two sensitivity analyses were conducted to evaluate the robustness of the assessment to historical data inputs and index selection:
 
 1. **Sensitivity 1 (1978–2024):** This run explores the impact of extending the time series back to 1978, prior to the start of the tuning indices using Constant $M$. The fishing mortality submodel was slightly modified to accommodate the longer time series by increasing the temporal spline knots to $k=25$.
@@ -457,14 +464,15 @@ aa4ref_c <- stk85_c+fit85_c
 aa4ref_l <- stk85_l+fit85_l
 
 ref_table <- data.frame(
-  Metric = c("FMSY", "BMSY (t)", "F2024", "B2024 (t)", "F2024 / FMSY", "B2024 / BMSY"),
+  Metric = c("FMSY", "BMSY (t)", "F2024", "B2024 (t)", "F2024 / FMSY", "B2024 / BMSY", "MSY (t)"),
   `1985 Constant M` = round(c(
     as.numeric(rp_85c['msy', 'harvest']),
     as.numeric(rp_85c['msy', 'biomass']),
     as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]]),
     as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]]),
     as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]] / rp_85c['msy', 'harvest']),
-    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]] / rp_85c['msy', 'biomass'])
+    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]] / rp_85c['msy', 'biomass']),
+    as.numeric(rp_85c['msy', 'yield'])
   ), 3),
   `1985 Lorenzen M` = round(c(
     as.numeric(rp_85l['msy', 'harvest']),
@@ -472,7 +480,8 @@ ref_table <- data.frame(
     as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]]),
     as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]]),
     as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]] / rp_85l['msy', 'harvest']),
-    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]] / rp_85l['msy', 'biomass'])
+    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]] / rp_85l['msy', 'biomass']),
+    as.numeric(rp_85l['msy', 'yield'])
   ), 3),
   check.names = FALSE
 )
@@ -512,6 +521,8 @@ plot(FLStocks(`Constant M (1985)` = a4a85_c,
 The exploratory models address specific structural constraints present in the continuity run by enabling flexible selectivity tracking and examining an alternative biological scenario for natural mortality. Incorporating the tensor product interaction resolves residual patterns in catch-at-age compared to simple additive age-year structures, allowing for shifting fleet selection to be modeled statistically rather than fixed a priori. 
 
 ## References
+
+Anon. (2020). Report of the 2020 ICCAT Mediterranean swordfish stock assessment meeting. *Collect. Vol. Sci. Pap. ICCAT*, 77(3): 179-316.
 
 Jardim, E., Millar, C. P., Mosqueira, I., Scott, F., Osio, G. C., Ferretti, M., Alzorriz, N., Orio, A. (2015). What if stock assessment is as simple as a linear model? The a4a initiative. ICES Journal of Marine Science, 72(1), 232-236.
 

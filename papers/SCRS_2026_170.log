@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  12 JUL 2026 07:59
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.5)  13 JUL 2026 09:37
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -764,90 +764,134 @@ LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 2
 30.
 (/usr/local/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [2{/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}]
-<SCRS_2026_170_files/figure-latex/plot-all-comp-1.pdf, id=32, 484.81125pt x 292
+) [2{/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}] [3 <
+./SCRS_2026_170_files/figure-latex/inputData-1.pdf>]
+<SCRS_2026_170_files/figure-latex/plot-all-comp-1.pdf, id=52, 484.81125pt x 292
 .09125pt>
 File: SCRS_2026_170_files/figure-latex/plot-all-comp-1.pdf Graphic file (type p
 df)
 <use SCRS_2026_170_files/figure-latex/plot-all-comp-1.pdf>
 Package pdftex.def Info: SCRS_2026_170_files/figure-latex/plot-all-comp-1.pdf  
-used on input line 285.
+used on input line 290.
 (pdftex.def)             Requested size: 484.81006pt x 292.09052pt.
-[3 <./SCRS_2026_170_files/figure-latex/inputData-1.pdf>]
-<SCRS_2026_170_files/figure-latex/diag-caa-res-1.pdf, id=52, 495.8525pt x 415.5
+<SCRS_2026_170_files/figure-latex/harvest3D-1.pdf, id=53, 482.80376pt x 206.772
+5pt>
+File: SCRS_2026_170_files/figure-latex/harvest3D-1.pdf Graphic file (type pdf)
+<use SCRS_2026_170_files/figure-latex/harvest3D-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/harvest3D-1.pdf  used
+ on input line 304.
+(pdftex.def)             Requested size: 482.80258pt x 206.77199pt.
+[4 <./SCRS_2026_170_files/figure-latex/plot-all-comp-1.pdf> <./SCRS_2026_170_fi
+les/figure-latex/harvest3D-1.pdf>]
+<SCRS_2026_170_files/figure-latex/diag-caa-res-1.pdf, id=81, 495.8525pt x 415.5
 525pt>
 File: SCRS_2026_170_files/figure-latex/diag-caa-res-1.pdf Graphic file (type pd
 f)
 <use SCRS_2026_170_files/figure-latex/diag-caa-res-1.pdf>
 Package pdftex.def Info: SCRS_2026_170_files/figure-latex/diag-caa-res-1.pdf  u
-sed on input line 313.
+sed on input line 332.
 (pdftex.def)             Requested size: 495.85129pt x 415.55148pt.
-<SCRS_2026_170_files/figure-latex/diag-idx-res-1.pdf, id=53, 495.8525pt x 307.1
+<SCRS_2026_170_files/figure-latex/diag-idx-res-1.pdf, id=82, 495.8525pt x 307.1
 475pt>
 File: SCRS_2026_170_files/figure-latex/diag-idx-res-1.pdf Graphic file (type pd
 f)
 <use SCRS_2026_170_files/figure-latex/diag-idx-res-1.pdf>
 Package pdftex.def Info: SCRS_2026_170_files/figure-latex/diag-idx-res-1.pdf  u
-sed on input line 323.
+sed on input line 342.
 (pdftex.def)             Requested size: 495.85129pt x 307.14674pt.
-<SCRS_2026_170_files/figure-latex/aggr-catch-1.pdf, id=54, 487.8225pt x 341.275
+<SCRS_2026_170_files/figure-latex/aggr-catch-1.pdf, id=83, 487.8225pt x 341.275
 pt>
 File: SCRS_2026_170_files/figure-latex/aggr-catch-1.pdf Graphic file (type pdf)
 
 <use SCRS_2026_170_files/figure-latex/aggr-catch-1.pdf>
 Package pdftex.def Info: SCRS_2026_170_files/figure-latex/aggr-catch-1.pdf  use
-d on input line 355.
+d on input line 374.
 (pdftex.def)             Requested size: 487.8213pt x 341.27415pt.
-[4 <./SCRS_2026_170_files/figure-latex/plot-all-comp-1.pdf>] [5 <./SCRS_2026_17
-0_files/figure-latex/diag-caa-res-1.pdf>] [6 <./SCRS_2026_170_files/figure-late
-x/diag-idx-res-1.pdf> <./SCRS_2026_170_files/figure-latex/aggr-catch-1.pdf>]
-<SCRS_2026_170_files/figure-latex/retro-85-c-1.pdf, id=111, 484.81125pt x 266.9
+[5 <./SCRS_2026_170_files/figure-latex/diag-caa-res-1.pdf>] [6 <./SCRS_2026_170
+_files/figure-latex/diag-idx-res-1.pdf> <./SCRS_2026_170_files/figure-latex/agg
+r-catch-1.pdf>]
+<SCRS_2026_170_files/figure-latex/retro-85-c-1.pdf, id=122, 484.81125pt x 266.9
 975pt>
 File: SCRS_2026_170_files/figure-latex/retro-85-c-1.pdf Graphic file (type pdf)
 
 <use SCRS_2026_170_files/figure-latex/retro-85-c-1.pdf>
 Package pdftex.def Info: SCRS_2026_170_files/figure-latex/retro-85-c-1.pdf  use
-d on input line 374.
+d on input line 394.
 (pdftex.def)             Requested size: 484.81006pt x 266.99683pt.
-<SCRS_2026_170_files/figure-latex/kobe-1.pdf, id=112, 487.8225pt x 304.13625pt>
-
-File: SCRS_2026_170_files/figure-latex/kobe-1.pdf Graphic file (type pdf)
-<use SCRS_2026_170_files/figure-latex/kobe-1.pdf>
-Package pdftex.def Info: SCRS_2026_170_files/figure-latex/kobe-1.pdf  used on i
-nput line 407.
-(pdftex.def)             Requested size: 487.8213pt x 304.1355pt.
-<SCRS_2026_170_files/figure-latex/plot-all-comp2-1.pdf, id=113, 484.81125pt x 2
-55.95625pt>
-File: SCRS_2026_170_files/figure-latex/plot-all-comp2-1.pdf Graphic file (type 
+<SCRS_2026_170_files/figure-latex/diag-caa-res-l-1.pdf, id=123, 495.8525pt x 31
+3.17pt>
+File: SCRS_2026_170_files/figure-latex/diag-caa-res-l-1.pdf Graphic file (type 
 pdf)
-<use SCRS_2026_170_files/figure-latex/plot-all-comp2-1.pdf>
-Package pdftex.def Info: SCRS_2026_170_files/figure-latex/plot-all-comp2-1.pdf 
- used on input line 428.
-(pdftex.def)             Requested size: 484.81006pt x 255.95561pt.
+<use SCRS_2026_170_files/figure-latex/diag-caa-res-l-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/diag-caa-res-l-1.pdf 
+ used on input line 414.
+(pdftex.def)             Requested size: 495.85129pt x 313.16922pt.
+<SCRS_2026_170_files/figure-latex/diag-idx-res-l-1.pdf, id=124, 495.8525pt x 30
+7.1475pt>
+File: SCRS_2026_170_files/figure-latex/diag-idx-res-l-1.pdf Graphic file (type 
+pdf)
+<use SCRS_2026_170_files/figure-latex/diag-idx-res-l-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/diag-idx-res-l-1.pdf 
+ used on input line 421.
+(pdftex.def)             Requested size: 495.85129pt x 307.14674pt.
+<SCRS_2026_170_files/figure-latex/aggr-catch-l-1.pdf, id=125, 487.8225pt x 341.
+275pt>
+File: SCRS_2026_170_files/figure-latex/aggr-catch-l-1.pdf Graphic file (type pd
+f)
+<use SCRS_2026_170_files/figure-latex/aggr-catch-l-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/aggr-catch-l-1.pdf  u
+sed on input line 427.
+(pdftex.def)             Requested size: 487.8213pt x 341.27415pt.
+<SCRS_2026_170_files/figure-latex/retro-85-l-1.pdf, id=126, 484.81125pt x 274.0
+2374pt>
+File: SCRS_2026_170_files/figure-latex/retro-85-l-1.pdf Graphic file (type pdf)
+
+<use SCRS_2026_170_files/figure-latex/retro-85-l-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/retro-85-l-1.pdf  use
+d on input line 436.
+(pdftex.def)             Requested size: 484.81006pt x 274.02307pt.
 [7 <./SCRS_2026_170_files/figure-latex/retro-85-c-1.pdf>] [8 <./SCRS_2026_170_f
-iles/figure-latex/kobe-1.pdf> <./SCRS_2026_170_files/figure-latex/plot-all-comp
-2-1.pdf>]
-<SCRS_2026_170_files/figure-latex/harvest3D-1.pdf, id=171, 482.80376pt x 206.77
-25pt>
-File: SCRS_2026_170_files/figure-latex/harvest3D-1.pdf Graphic file (type pdf)
-<use SCRS_2026_170_files/figure-latex/harvest3D-1.pdf>
-Package pdftex.def Info: SCRS_2026_170_files/figure-latex/harvest3D-1.pdf  used
- on input line 440.
-(pdftex.def)             Requested size: 482.80258pt x 206.77199pt.
-[9 <./SCRS_2026_170_files/figure-latex/harvest3D-1.pdf>] (./SCRS_2026_170.aux)
+iles/figure-latex/diag-caa-res-l-1.pdf> <./SCRS_2026_170_files/figure-latex/dia
+g-idx-res-l-1.pdf>] [9 <./SCRS_2026_170_files/figure-latex/aggr-catch-l-1.pdf>]
+<SCRS_2026_170_files/figure-latex/kobe-c-1.pdf, id=183, 487.8225pt x 304.13625p
+t>
+File: SCRS_2026_170_files/figure-latex/kobe-c-1.pdf Graphic file (type pdf)
+<use SCRS_2026_170_files/figure-latex/kobe-c-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/kobe-c-1.pdf  used on
+ input line 466.
+(pdftex.def)             Requested size: 487.8213pt x 304.1355pt.
+<SCRS_2026_170_files/figure-latex/kobe-l-1.pdf, id=184, 487.8225pt x 304.13625p
+t>
+File: SCRS_2026_170_files/figure-latex/kobe-l-1.pdf Graphic file (type pdf)
+<use SCRS_2026_170_files/figure-latex/kobe-l-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/kobe-l-1.pdf  used on
+ input line 473.
+(pdftex.def)             Requested size: 487.8213pt x 304.1355pt.
+<SCRS_2026_170_files/figure-latex/sens-plots-1.pdf, id=185, 484.81125pt x 328.2
+2626pt>
+File: SCRS_2026_170_files/figure-latex/sens-plots-1.pdf Graphic file (type pdf)
+
+<use SCRS_2026_170_files/figure-latex/sens-plots-1.pdf>
+Package pdftex.def Info: SCRS_2026_170_files/figure-latex/sens-plots-1.pdf  use
+d on input line 495.
+(pdftex.def)             Requested size: 484.81006pt x 328.22545pt.
+[10 <./SCRS_2026_170_files/figure-latex/retro-85-l-1.pdf>] [11 <./SCRS_2026_170
+_files/figure-latex/kobe-c-1.pdf> <./SCRS_2026_170_files/figure-latex/kobe-l-1.
+pdf>] [12 <./SCRS_2026_170_files/figure-latex/sens-plots-1.pdf>] (./SCRS_2026_1
+70.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 17542 strings out of 467525
- 283924 string characters out of 5418989
- 742803 words of memory out of 5000000
- 45984 multiletter control sequences out of 15000+600000
- 694068 words of font info for 152 fonts, out of 8000000 for 9000
+ 17590 strings out of 467525
+ 286283 string characters out of 5418989
+ 743064 words of memory out of 5000000
+ 46025 multiletter control sequences out of 15000+600000
+ 693985 words of font info for 151 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 77i,11n,81p,1010b,521s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 77i,11n,81p,1010b,479s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></usr/lo
 cal/texlive/2026/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></usr/local/texliv
 e/2026/texmf-dist/fonts/type1/public/lm/lmmi10.pfb></usr/local/texlive/2026/tex
@@ -858,10 +902,10 @@ blic/lm/lmr6.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr8
 ocal/texlive/2026/texmf-dist/fonts/type1/public/lm/lmri10.pfb></usr/local/texli
 ve/2026/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></usr/local/texlive/2026/te
 xmf-dist/fonts/type1/public/lm/lmtt10.pfb>
-Output written on SCRS_2026_170.pdf (9 pages, 399734 bytes).
+Output written on SCRS_2026_170.pdf (12 pages, 500404 bytes).
 PDF statistics:
- 291 PDF objects out of 1000 (max. 8388607)
- 226 compressed objects within 3 object streams
- 39 named destinations out of 1000 (max. 500000)
- 34958 words of extra memory for PDF output out of 35830 (max. 10000000)
+ 374 PDF objects out of 1000 (max. 8388607)
+ 291 compressed objects within 3 object streams
+ 48 named destinations out of 1000 (max. 500000)
+ 35007 words of extra memory for PDF output out of 35830 (max. 10000000)
 

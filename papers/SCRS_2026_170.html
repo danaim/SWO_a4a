@@ -152,6 +152,11 @@ window.Quarto = {
 <p>The fishing mortality (<span class="math inline">\(F\)</span>) submodel includes a tensor product interaction (<code>ti(year, age)</code>) to accommodate changes in selectivity over time, combined with smoothers for year and age main effects: <span class="math display">\[F \sim s(\text{year}, k = 20) + s(\text{age}, k = 8) + ti(\text{year, age}, k = c(6, 5))\]</span></p>
 <p>The recruitment (<span class="math inline">\(R\)</span>) submodel uses a temporal smoother: <span class="math display">\[R \sim s(\text{year}, k = 20)\]</span></p>
 <p>For catchability (<span class="math inline">\(q\)</span>), constant catchability was assumed for the Greek, Spanish, and Sicilian longlines (<span class="math inline">\(\sim 1\)</span>), while a smoother over time (<span class="math inline">\(\sim s(\text{year}, k = 3)\)</span>) was applied to the Moroccan and Ligurian indices to account for identified trends.</p>
+<p>The observation variance (<span class="math inline">\(vmod\)</span>) and initial age structure (<span class="math inline">\(n1mod\)</span>) were kept the same as the default settings. <!-- The observation variance ($\sigma^2$) of the catches was modeled using a spline across ages ($\sim s(\text{age}, k = 3)$) assuming no year effect, while the observation variances ($\tau^2$) for all tuning indices were assumed constant ($\sim 1$).  --></p>
+<!-- The population's initial age structure in the first year of the assessment ($N_1$) was estimated using a simple age smoother ($\sim s(\text{age}, k = 3)$). -->
+</section>
+<section id="sensitivity-runs" class="level3">
+<h3 class="anchored" data-anchor-id="sensitivity-runs">2.3 Sensitivity Runs</h3>
 <p>In addition to the two primary candidate models, two sensitivity analyses were conducted to evaluate the robustness of the assessment to historical data inputs and index selection:</p>
 <ol type="1">
 <li><p><strong>Sensitivity 1 (1978–2024):</strong> This run explores the impact of extending the time series back to 1978, prior to the start of the tuning indices using Constant <span class="math inline">\(M\)</span>. The fishing mortality submodel was slightly modified to accommodate the longer time series by increasing the temporal spline knots to <span class="math inline">\(k=25\)</span>.</p></li>
@@ -337,6 +342,11 @@ window.Quarto = {
 <td style="text-align: right;">0.800</td>
 <td style="text-align: right;">0.726</td>
 </tr>
+<tr class="odd">
+<td style="text-align: left;">MSY (t)</td>
+<td style="text-align: right;">11465.313</td>
+<td style="text-align: right;">11591.307</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -363,8 +373,8 @@ window.Quarto = {
 </div>
 </section>
 </section>
-<section id="sensitivity-runs" class="level2">
-<h2 class="anchored" data-anchor-id="sensitivity-runs">5. Sensitivity Runs</h2>
+<section id="sensitivity-runs-1" class="level2">
+<h2 class="anchored" data-anchor-id="sensitivity-runs-1">5. Sensitivity Runs</h2>
 <p>To evaluate the robustness of the assessment to historical data truncation and index selection, two sensitivity runs were evaluated. Sensitivity 1 extended the historical period back to 1978, while Sensitivity 2 maintained the 1985 start year but incorporated two additional historical tuning indices (Sicilian Gillnet and Ligurian Surface Longline).</p>
 <p>The trajectories of both sensitivity runs (Figure <span class="citation" data-cites="ref">@ref</span>(fig:sens-plots)) align closely with the 1985 baseline candidate run. The inclusion of the early historical catch (1978-1984) and the extra indices shifts the absolute scale of the historical biomass slightly, but the terminal estimates of fishing mortality and stock depletion remain highly consistent. This indicates that the 1985 truncation and the selection of the 5 core indices provide a stable and representative baseline.</p>
 <div class="cell">
@@ -376,23 +386,14 @@ window.Quarto = {
 </div>
 </div>
 </div>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="SCRS_2026_170_files/figure-html/sens-status-1.png" class="img-fluid figure-img" width="2100"></p>
-</figure>
-</div>
-</div>
-</div>
 </section>
 <section id="discussion" class="level2">
 <h2 class="anchored" data-anchor-id="discussion">6. Discussion</h2>
 <p>The exploratory models address specific structural constraints present in the continuity run by enabling flexible selectivity tracking and examining an alternative biological scenario for natural mortality. Incorporating the tensor product interaction resolves residual patterns in catch-at-age compared to simple additive age-year structures, allowing for shifting fleet selection to be modeled statistically rather than fixed a priori.</p>
-<p>The Lorenzen age-varying <span class="math inline">\(M\)</span> vector provides an important alternative hypothesis, demonstrating that while absolute scales shift significantly (especially for recruitment), the qualitative trajectory of relative depletion and exploitation rates remains robust. Future assessments could integrate both data-driven structural flexibilities and rigorous evaluation of alternative biological inputs through MCMC uncertainty characterization.</p>
 </section>
 <section id="references" class="level2">
 <h2 class="anchored" data-anchor-id="references">References</h2>
+<p>Anon. (2020). Report of the 2020 ICCAT Mediterranean swordfish stock assessment meeting. <em>Collect. Vol. Sci. Pap. ICCAT</em>, 77(3): 179-316.</p>
 <p>Jardim, E., Millar, C. P., Mosqueira, I., Scott, F., Osio, G. C., Ferretti, M., Alzorriz, N., Orio, A. (2015). What if stock assessment is as simple as a linear model? The a4a initiative. ICES Journal of Marine Science, 72(1), 232-236.</p>
 <p>Mantopoulou-Palouka, D., Tserpes, G. (2020). Assessment of the Mediterranean Swordfish stock by means of Assessment for All. Collect. Vol. Sci. Pap. ICCAT, 77(3): 482-507.</p>
 </section>
