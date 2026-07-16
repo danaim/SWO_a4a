@@ -99,7 +99,18 @@ sum_sim <- function(flq) {
     
                                                                   
                                                                                                       
-  ### Example Usage:                                                                                  
+plotSels <- function(stk){
+  sel <- harvest(stk)%/%apply(harvest(stk), c(2:6),max)
+  ss <- as.data.frame(sel)
+  ss$unique = 'Selectivity'
+  p_sel <- ggplot(data = ss, aes(x = age, y = data, group = year,color = year)) +
+    geom_line() + scale_colour_viridis_c(option = 'C') + facet_wrap(~unique) +
+    theme(legend.position = 'bottom', axis.title.y=element_blank())+
+    scale_x_continuous(expand = c(0,0), 
+                       breaks = seq(as.numeric(range(stk)['min']), as.numeric(range(stk)['max']),1))+
+    labs(colour = "")+ggtitle(name(stk))
+  return(p_sel)
+}                                                                                
                                                                                                                      
     
 

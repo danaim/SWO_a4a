@@ -9,9 +9,9 @@ aa.idx <- idx_use
 # VARIABLES
 #====================================================================
 
-it <- 200 # iterations
-brn <- 50
-mcsave <- 500
+it <- 2000 # iterations
+brn <- 500
+mcsave <- 1000
 mcmc <- mcsave*it
 fmod <- ~s(year, k = 20) + s(age, k = 8) + ti(year, age, k = c(6, 5))
 srmod <- ~s(year, k = 20)

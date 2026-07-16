@@ -544,3 +544,56 @@ p1+p2
 
 <!-- ## Thank you -->
 
+## Additional run without Sicilian LL 
+
+Proposal of the group: Exclude Sicilian LL - use only four indices
+
+```{r excl-SILL}
+## Proposal of the group: Exclude Sicilian LL - use only four indices
+idx_gp <- idx_use[-5]
+fmod_85 <- ~ s(year, k = 20) + s(age, k = 8) + ti(year, age, k = c(6, 5))
+srmod   <- ~ s(year, k = 20)
+qmod_gp    <- list(~1, ~s(year, k = 3), ~1, ~s(year, k = 3))
+fit_gp <- sca(stk85_c, idx_gp, fmodel = fmod_85, srmodel = srmod, qmodel = qmod_gp)
+a4a_gp <- stk85_c + simulate(fit_gp, nsim = 1000)
+```
+
+```{r plt-cmp-bc-gp, fig.height = 5}
+plot(FLStocks(`4 indices` = a4a_gp, `Constant M` = a4a85_c))
+```
+
+## Catch-at-Age Standardized Residuals - Excluding Sicilian LL 
+```{r diag-caa-res-gp, fig.height=5.2}
+res85_l <- residuals(fit_gp, stk85_c, idx_gp)
+
+    res_df <- as.data.frame(residuals(fit_gp, stk85_c, idx_gp))
+  
+    ggplot(subset(res_df, qname == "catch.n"), aes(x = year, y = data)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+      geom_point(aes(color = data > 0), size = 1.5) +
+      scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                         labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+      facet_wrap(~ age, ncol = 3) +
+      labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+      theme_bw() +
+      theme(legend.position = "bottom") + ylim(-3,3)
+
+```
+
+## Standardized CPUE Index Residuals - Excluding Sicilian LL
+
+```{r diag-idx-res-gp, fig.height=5.2}
+
+    ggplot(subset(res_df, !qname %in% c("catch.n", "catch")), aes(x = year, y = data)) +              
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      geom_segment(aes(xend = year, yend = 0, color = data > 0), linewidth = 0.5) +
+      geom_point(aes(color = data > 0), size = 1.5) +
+      scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c"), 
+                         labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
+      facet_wrap(~ qname, ncol = 3) +
+      labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
+      theme_bw() +
+      theme(legend.position = "bottom")
+
+```
