@@ -1,0 +1,357 @@
+---
+title: '**Continuity Model Runs for the Mediterranean Swordfish Stock Assessment Using
+  the a4a initiative \vspace{0.1cm}**'
+documentclass: article
+author: "D. Mantopoulou-Palouka^[Joint Research Center. Corresponding author: Danai.MANTOPOULOU-PALOUKA@ec.europa.eu], G. Tserpes^[Hellenic Center for Marine Research, Heraklion, Greece], A. Kimoto^[International Commission for the Conservation of Atlantic Tunas, Madrid Spain], E. Jardim^[Portuguese Institute for Sea and Atmosphere, Lisbon, Portugal]"
+date: ''
+output:
+  officedown::rdocx_document:
+    reference_docx: "SCRS_doc_template_ENG.docx"
+    fig_caption: true
+    number_sections: false
+---
+
+\pagestyle{fancy}
+\fancypagestyle{plain}{\pagestyle{fancy}}
+\fancyhead{}
+\fancyhead[L]{SCRS/2026/169}
+\captionsetup[table]{labelformat=empty}
+
+
+```{r setup, include=FALSE}
+## knit from the project root so that "Robj/..." paths resolve
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+knitr::opts_chunk$set(
+  echo = FALSE, warning = FALSE, message = FALSE,
+  fig.width = 7, fig.height = 4.5, dpi = 300,
+  cache = TRUE, cache.lazy = FALSE
+)
+```
+
+```{r libs, cache=FALSE}
+suppressMessages({
+  library(FLCore)
+  library(FLa4a)
+  library(FLBRP)
+  library(ggplotFL)
+  library(knitr)
+  library(flextable)
+  library(officer)
+})
+
+# Strip gridlines to comply with ICCAT figure guidelines
+theme_set(
+  theme_bw(base_size = 9) +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+)
+
+```
+
+```{r load-data}
+## 2020 assessment inputs (ages 0-5, 1985-2018, plus group 5)
+stk_2020 <- readRDS("Robj/swo_stk_2020.rds")
+idx_2020 <- readRDS("Robj/swo_bio_idx_2020.rds")
+swo.stk  <- readRDS("Robj/swo_stk.rds")
+swo.idx  <- readRDS("Robj/swo_bio_idx_std.rds")
+```
+
+
+\begin{center}
+\emph{SUMMARY}
+\end{center} 
+
+::: {custom-style="SummaryText"}
+This document updates the 2020 age-structured (a4a) assessment of the Mediterranean swordfish (Xiphias gladius) by incorporating catch-at-age and standardized catch-per-unit-effort (CPUE) data extended through 2024. To ensure continuity with the 2020 assessment, the updated model retained the same assumptions (constant natural mortality, plus group at age 5), and was fitted to six standardized CPUE series within the a4a statistical catch-at-age framework. The updated assessment is compared with the 2020 evaluation as well as two sensitivity runs that truncate the series to the 2018 terminal year; one run utilizes the estimated CPUE indices from 2020, while the other employs the indices provided for the 2026 assessment. Although the estimated spawning-stock biomass, recruitment, and fishing mortality trajectories of the new runs generally align with the previous assessment, notable discrepancies in the scales of fishing mortality and spawning biomass have emerged.
+:::
+
+
+
+**KEYWORDS**  
+*Swordfish, Mediterranean, Stock Assessment, a4a*
+
+\newpage
+
+\justifying
+
+## Introduction
+
+This document presents an updated assessment of the Mediterranean swordfish (*Xiphias gladius*) stock, utilizing the a4a statistical age-structured population model (Jardim et al. 2015). As a continuity update to the 2020 assessment (Anon 2020; Mantopoulou & Tserpes 2020), this analysis extends the time series of catch and abundance data through 2024, covering the period 1987–2024. 
+
+The primary objective is to evaluate current stock status by integrating recent fisheries data into the established 2020 model configuration. To maintain consistency, this run preserves the fundamental biological assumptions and model structures previously agreed upon; specifically, natural mortality ($M$), somatic growth, and maturity-at-age matrices remain fixed. Consequently, this update focuses on incorporating standardized relative abundance indices and catch-at-age data for 2020–2024, followed by a diagnostic review and revised stock status estimates.
+
+## Material and methods
+
+### Catch and survey indices
+
+Catch-at-age (CAA) matrices for ages 0-9 spanning
+`r range(swo.stk)["minyear"]`-`r range(swo.stk)["maxyear"]` were provided by the ICCAT Secretariat. For continuity with 2020, the fitted model truncates the series to start in 1985 and collapses ages into a plus group at age 5, with the reference fishing mortality ($\bar{F}$) averaged over ages 2-4. Biological inputs (maturity, weight-at-age and a constant natural mortality of $M = 0.2$) are unchanged from the 2020 configuration.
+
+While six standardized CPUE series were compiled during data preparation, the updated continuity run utilizes **five** by droping early Ligurian surface longline series (`LI_SUR`) to match the final 2020 model.
+
+The standardized CPUE series are used as relative biomass indices (Table \@ref(tab:idx-tab)): Greek (GR\_LL), Spanish (SP\_LL), Moroccan
+(MO\_LL), Ligurian longline (LI\_LL) and a historical Sicilian series (SI\_LL). The indices are treated as representative of ages 2-4. Each time series was standardized by dividing its annual values by its series-specific mean value. 
+
+The time series of catches used in the 2020 assessment together with the updated catch series are shown in Figure \@ref(fig:catch-comp). Regarding the catch at age data, there are differences between the previous and the currently used dataset (Figures \@ref(fig:caa-comp) and \@ref(fig:caa-comp2)). For the update run the plusgroup agreed in the 2020 assessment was kept (5+).   
+
+```{r idx-tab, table.placement = 'H'}
+library(kableExtra)
+
+idx_labels <- c(
+  GR_LL       = "Greek longliners",
+  LI_LL       = "Ligurian longliners",
+  SP_LL       = "Spanish longliners",
+  MO_LL       = "Moroccan longliners",
+  SI_LL       = "Sicilian longliners"
+)
+idx_t <- swo.idx[-2]
+idx_summary <- do.call(rbind, lapply(names(idx_t), function(nm){
+  x <- idx_t[[nm]]
+  data.frame(
+    Index        = idx_labels[[nm]],
+    Series       = nm,
+    `First year` = range(x)["minyear"],
+    `Last year`  = range(x)["maxyear"],
+    `Age range`  = paste(range(x)["min"], range(x)["max"], sep = "-"),
+    check.names  = FALSE,
+    row.names    = NULL)
+}))
+
+flextable(idx_summary) %>%
+  set_caption("Table 1: Standardized CPUE series used as relative abundance indices in the 2026 updated a4a assessment.") %>%
+  font(fontname = "Cambria", part = "all") %>%
+  fontsize(size = 10, part = "all") %>%
+  border_remove() %>%
+  hline_top(border = fp_border_default(width = 1.5)) %>%
+  hline_bottom(border = fp_border_default(width = 1.5)) %>%
+  hline(i = 1, part = "header", border = fp_border_default(width = 1)) %>%
+  autofit()
+
+```
+
+```{r catch-comp, fig.cap="Total catch (t) used in the 2020 assessment (ages 0-5, 1985-2018) and in the 2026 update (ages 0-9, 1972-2024).", fig.height = 4}
+cc <- rbind(
+  data.frame(year = as.numeric(dimnames(catch(stk_2020))$year),
+             catch = as.numeric(catch(stk_2020)), source = "2020"),
+  data.frame(year = as.numeric(dimnames(catch(swo.stk))$year),
+             catch = as.numeric(catch(swo.stk)), source = "2026 update"))
+ggplot(cc, aes(year, catch, colour = source)) +
+  geom_line(linewidth = 0.7) +
+  labs(x = "Year", y = "Catch (t)", colour = NULL) +
+  theme(legend.position = "top")
+```
+
+```{r caa-comp, fig.height=5, fig.cap="Catch-at-age by year for the 2020 inputs (ages 0-5) and the 2026 update (ages 0-9).", results='asis'}
+ggplot(as.data.frame(FLQuants(caa2020 = catch.n(stk_2020), 
+                              caa2026 = catch.n(swo.stk)))) +
+  geom_line(aes(x = year, y = data, group = qname, color = qname))+
+  facet_wrap(~age, ncol = 3)
+```
+
+
+
+```{r caa-comp2, fig.height=5, fig.cap="Catch-at-age by year for the 2020 inputs (ages 0-5) and the 2026 update (ages 0-5).", echo=FALSE, results='asis', message = FALSE, warning=FALSE, comment=NA}
+stk <- window(swo.stk, start = 1985) # truncate early years as in 2020
+stk <- replaceZeros(stk)
+range(stk)[c('minfbar','maxfbar')] <- c(2,4) 
+stk <- setPlusGroup(stk, 5) # same plus group
+#range(stk)[c('minfbar','maxfbar')] <- c(2,4) 
+ggplot(as.data.frame(FLQuants(caa2020 = catch.n(stk_2020), 
+                              caa2026 = catch.n(stk)))) +
+  geom_line(aes(x = year, y = data, group = qname, color = qname))+
+  facet_wrap(~age, ncol = 3, scales = 'free')
+```
+
+
+### Statistical analysis
+
+The assessment uses the `a4a` statistical catch-at-age framework, in which fishing mortality, recruitment and catchability are specified
+as separable submodels of smooth functions of age and year. Four runs are reported: (i) The 2020 a4a model as a baseline; (ii) the
+updated run fitted to data through 2024; and (iii) sensitivity run that truncate the updated data to the 2018, terminal year of the 2020 assessment (iv) sensitivity run that truncate the updated data to 2018, using the 2020 standardized indices. Submodel formulas are given in Tables \@ref(tab:mods) and \@ref(tab:qmods).
+
+\vspace{2.5cm}
+
+```{r mods}
+mods <- data.frame(
+  Run = c("2020 baseline", "2026 update", "Sensitivity 1 (up to 2018)", "Sensitivity 2 (up to 2018 - old indices)"),
+  `F submodel` = c("s(year, k=17) + s(age, k=3)",
+                   "s(year, k=19) + s(age, k=3)",
+                   "s(year, k=17) + s(age, k=3)",
+                   "s(year, k=17) + s(age, k=3)"),
+  `R submodel` = c("s(year, k=15)", "s(year, k=17)", "s(year, k=15)", "s(year, k=15)"),
+  check.names = FALSE)
+
+flextable(mods) %>%
+  set_caption("Table 2: Fishing-mortality and recruitment submodels for the reported a4a runs.") %>%
+  font(fontname = "Cambria", part = "all") %>%
+  fontsize(size = 10, part = "all") %>%
+  border_remove() %>%
+  hline_top(border = fp_border_default(width = 1.5)) %>%
+  hline_bottom(border = fp_border_default(width = 1.5)) %>%
+  hline(i = 1, part = "header", border = fp_border_default(width = 1)) %>%
+  autofit()
+
+```
+
+```{r qmods}
+qmod_table <- data.frame(
+  Index_Code = c("GR_LL", "LI_LL", "SP_LL", "MO_LL", "SI_LL"),
+  Fleet = c("Greek Longline", 
+            "Ligurian Longline", 
+            "Spanish Longline", 
+            "Moroccan Longline", 
+            "Sicilian Longline"),
+  Submodel = c("~ 1", 
+              "~ s(year, k = 3)", 
+              "~ 1", 
+              "~ s(year, k = 3)", 
+              "~ 1")
+)
+
+flextable(qmod_table) %>%
+  set_caption("Table 3: Summary of the catchability (q) submodel specifications for the five standardized biomass indices.") %>%
+  font(fontname = "Cambria", part = "all") %>%
+  fontsize(size = 10, part = "all") %>%
+  border_remove() %>%
+  hline_top(border = fp_border_default(width = 1.5)) %>%
+  hline_bottom(border = fp_border_default(width = 1.5)) %>%
+  hline(i = 1, part = "header", border = fp_border_default(width = 1)) %>%
+  autofit()
+```
+
+
+```{r fit-2020}
+# Dropping the Ligurian surface (as we did in 2020)
+idx_2020 <- idx_2020[-6]
+# NOTE: final a4a had discards included
+fmod2020 <- ~s(year, k = 17) + s(age, k = 3)
+srmod2020 <- ~s(year, k = 15)
+# qmod2020 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1,~s(year, k = 9))
+qmod2020 <- list(~1,~1, ~s(year, k = 3), ~s(year, k = 3),~1)
+fit2020 <- sca(stk_2020, idx_2020, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod2020)
+a4a.2020 <- stk_2020 + simulate(fit2020, nsim = 1000)
+```
+
+```{r fit-update}
+# Also dropping the Ligurian from here
+idx <- swo.idx[-2]
+
+fmod2 <- ~s(year, k = 20) + s(age, k = 3) # added ks - keep ratio
+srmod1 <- ~s(year, k = 17) # added ks
+# qmod <- list(~1,~s(year, k = 9), ~s(year, k = 3), ~1, ~s(year, k = 3),~1)
+qmod <- list(~1, ~s(year, k = 3), ~1, ~s(year, k = 3),~1)
+fit <- sca(stk, idx, fmodel = fmod2, srmodel = srmod1, qmodel = qmod) 
+a4a.stk <- stk + simulate(fit, nsim = 1000)
+```
+
+```{r fit-sens1}
+## sensitivity 1: updated data truncated to 2018
+stk_s <- window(stk, end = 2018)
+idx_s <- window(idx, end = 2018)
+fit1 <- sca(stk_s, idx_s, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod) 
+a4a.sens1 <- stk_s + simulate(fit1, nsim = 1000)
+```
+
+```{r fit-sens2}
+## sensitivity 2: updated data truncated to 2018 - old indices
+fit2 <- sca(stk_s, idx_2020, fmodel = fmod2020, srmodel = srmod2020, qmodel = qmod2020) 
+a4a.sens2 <- stk_s + simulate(fit2, nsim = 1000)
+```
+
+\pagebreak
+
+## Results and discussion
+
+Plots of the 4 different runs are presented in Figures \@ref(fig:comp-plot) and \@ref(fig:sens-plot). Standardized residuals of the fit to the CPUE indices and to catch-at-age for the updated run are shown in Figures \@ref(fig:resid) and \@ref(fig:totcatch-res). No strong systematic patterns are apparent. Although the estimated spawning-stock biomass, recruitment, and fishing mortality trajectories of the new runs share some similarities with the 2020 assessment, significant discrepancies in fishing mortality and spawning biomass scales are evident. 
+
+Estimates for spawning stock biomass (SSB) and fishing mortality ($F$) reference points for both the 2020 assessment and the current continuity run are presented in Figure \@ref(fig:plotrefpts), alongside their respective stock trajectories. Notably, the perception of stock status has shifted, with the continuity run showing a more optimistic outlook than the previous assessment. 
+
+```{r comp-plot, fig.height=7.7, fig.cap="Spawning-stock biomass, recruitment, fishing mortality and catch from the 2026 updated a4a run and the 2020 baseline. Ribbons show the 95% simulation interval."}
+plot(FLStocks(`2026 update` = a4a.stk, `2020 baseline` = a4a.2020))
+```
+
+```{r sens-plot, fig.height=8, fig.cap="Comparison of the 2020 baseline with the sensitivity runs"}
+plot(FLStocks(`2020 baseline` = a4a.2020, `sensitivity 1` = a4a.sens1,
+ `sensitivity 2` = a4a.sens2))
+```
+
+
+```{r resid, fig.height=8, fig.cap="Standardized residuals of the 2026 updated a4a fit for the CPUE indices and catch-at-age."}
+range(stk)[c('minfbar','maxfbar')] <- c(2,4) 
+res <- residuals(fit, stk, idx)
+plot(res)
+```
+
+```{r totcatch-res, fig.height = 8, fig.cap = "Diagnostics for agregated catch in weight."}
+c_d <- computeCatchDiagnostics(fit, stk)
+plot(c_d, cex=0.3)
+```
+
+
+```{r refpts}
+### ------------------------------------------------------ ###
+# Status - Ref points
+### ------------------------------------------------------ ###
+
+stk <- window(swo.stk, start = 1985)
+stk <- replaceZeros(stk)
+range(stk)[c('minfbar','maxfbar')] <- c(2,4) 
+stk <- setPlusGroup(stk, 5) # same plus group
+aa.stk <- stk + fit
+
+landings.n(aa.stk)<-catch.n(aa.stk)
+landings.wt(aa.stk)<-catch.wt(aa.stk)
+landings(aa.stk)<-catch(aa.stk)
+discards(aa.stk)<-0
+discards.n(aa.stk)<-0
+discards.wt(aa.stk)<-0
+
+model = "bevholt"
+srr_upd <- fmle(as.FLSR(aa.stk, model = model),control=list(trace=0),fixed=list(b=100))
+brp_upd<- brp(FLBRP(aa.stk, sr = srr_upd))
+ref_points_upd <- refpts(brp_upd)
+
+aa.stk <- stk_2020 + fit2020
+landings.n(aa.stk)<-catch.n(aa.stk)
+landings.wt(aa.stk)<-catch.wt(aa.stk)
+landings(aa.stk)<-catch(aa.stk)
+discards(aa.stk)<-0
+discards.n(aa.stk)<-0
+discards.wt(aa.stk)<-0
+srr_2020 <- fmle(as.FLSR(aa.stk, model = model),control=list(trace=0),fixed=list(b=100))
+brp_2020 <- brp(FLBRP(aa.stk, sr = srr_2020))
+ref_points_2020 <- refpts(brp_2020)
+
+
+fmsy_upd <- as.numeric(ref_points_upd['msy','harvest'])
+bbmsy_upd <- as.numeric(ref_points_upd['msy','biomass'])
+p1 <- plot(a4a.stk, metrics=list(B=stock, F=fbar)) +
+  geom_flpar(data=FLPars(B=FLPar(Bmsy = bbmsy_upd),
+  F=FLPar(FMSY=fmsy_upd)), x=c(1990, 2015))
+
+fmsy_upd <- as.numeric(ref_points_2020['msy','harvest'])
+bbmsy_upd <- as.numeric(ref_points_2020['msy','biomass'])
+p2 <- plot(a4a.2020, metrics=list(B=stock, F=fbar)) +
+  geom_flpar(data=FLPars(B=FLPar(Bmsy = bbmsy_upd),
+  F=FLPar(FMSY=fmsy_upd)), x=c(1990, 2015))
+```
+
+```{r plotrefpts, fig.cap="Perception of the stock for the 2020 baserun (left) and 2026 update run (right)"}
+library(gridExtra)
+grid.arrange(p2, p1, ncol = 2)
+```
+
+\newpage
+
+## References
+
+Anon. 2020. Report of the 2020 ICCAT Mediterranean swordfish stock assessment meeting.
+Col. Vol. Sci. Pap. ICCAT, 77(3): 179-316.
+
+Jardim, E., Millar, C.P., Mosqueira, I., Scott, F., Osio, G.C., Ferretti, M.,
+Alzorriz, N., Orio, A. 2015. What if stock assessment is as simple as a linear
+model? The a4a initiative. ICES Journal of Marine Science, 72(1): 232-236.
+
+Mantopoulou-Palouka D., Tserpes G. 2020. Assessment of the Mediterranean swordfish stock by means of assessment for all (a4a). Col. Vol. Sci. Pap. ICCAT, 77: 482-507.

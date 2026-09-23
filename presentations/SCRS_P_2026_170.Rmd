@@ -486,14 +486,15 @@ aa4ref_c <- stk85_c+fit85_c
 aa4ref_l <- stk85_l+fit85_l
 
 ref_table <- data.frame(
-  Metric = c("FMSY", "BMSY (t)", "F2024", "B2024 (t)", "F2024 / FMSY", "B2024 / BMSY"),
+  Metric = c("FMSY", "BMSY (t)", "F2024", "B2024 (t)", "F2024 / FMSY", "B2024 / BMSY","MSY"),
   `1985 Constant M` = round(c(
     as.numeric(rp_85c['msy', 'harvest']),
     as.numeric(rp_85c['msy', 'biomass']),
     as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]]),
     as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]]),
     as.numeric(fbar(aa4ref_c)[, dim(fbar(aa4ref_c))[2]] / rp_85c['msy', 'harvest']),
-    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]] / rp_85c['msy', 'biomass'])
+    as.numeric(stock(aa4ref_c)[, dim(stock(aa4ref_c))[2]] / rp_85c['msy', 'biomass']),
+    as.numeric(rp_85c['msy', 'yield'])
   ), 3),
   `1985 Lorenzen M` = round(c(
     as.numeric(rp_85c['msy', 'harvest']),
@@ -501,7 +502,8 @@ ref_table <- data.frame(
     as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]]),
     as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]]),
     as.numeric(fbar(aa4ref_l)[, dim(fbar(aa4ref_l))[2]] / rp_85l['msy', 'harvest']),
-    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]] / rp_85l['msy', 'biomass'])
+    as.numeric(stock(aa4ref_l)[, dim(stock(aa4ref_l))[2]] / rp_85l['msy', 'biomass']),
+    as.numeric(rp_85c['msy', 'yield'])
   ), 3),
   check.names = FALSE
 )

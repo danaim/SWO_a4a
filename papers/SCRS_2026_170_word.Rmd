@@ -1,31 +1,14 @@
 ---
-title: '**Assessing Mediterranean Swordfish Using the Assessment for All (a4a) Model \vspace{0.1cm}**'
-documentclass: article
-author: "\\small D. Mantopoulou-Palouka$^1$, G. Tserpes$^2$, A. Kimoto$^3$, E. Jardim$^4$"
+title: "ASSESSING MEDITERRANEAN SWORDFISH USING THE ASSESSMENT FOR ALL (a4a) MODEL"
+author: "D. Mantopoulou-Palouka^[Joint Research Center. Corresponding author: Danai.MANTOPOULOU-PALOUKA@ec.europa.eu], G. Tserpes^[Hellenic Center for Marine Research, Heraklion, Greece], A. Kimoto^[International Commission for the Conservation of Atlantic Tunas, Madrid Spain], E. Jardim^[Portuguese Institute for Sea and Atmosphere, Lisbon, Portugal]"
 date: ''
 output:
-  bookdown::pdf_document2:
-    toc: false
+  officedown::rdocx_document:
+    reference_docx: "SCRS_doc_template_ENG.docx"
+    fig_caption: true
     number_sections: false
-    latex_engine: xelatex
-mainfont: Caladea
-fontsize: 10pt
-geometry: a4paper, left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm
-header-includes:
-- \usepackage{titling}
-- \pretitle{\begin{center}\large\bfseries}
-- \posttitle{\end{center}}
-- \usepackage{soul,color,colortbl,fancyhdr}
-- \usepackage{caption}
-- \usepackage[singlelinecheck=false]{caption}
-- \usepackage[document]{ragged2e}
-- \usepackage{float}
 ---
 
-\footnotetext[1]{Joint Research Center. Corresponding author: Danai.MANTOPOULOU-PALOUKA@ec.europa.eu}
-\footnotetext[2]{Hellenic Center for Marine Research, Heraklion, Greece}
-\footnotetext[3]{ International Commission for the Conservation of Atlantic Tunas, Madrid Spain}
-\footnotetext[4]{Portuguese Institute for Sea and Atmosphere, Lisbon, Portugal}
 
 \pagestyle{fancy}
 \fancypagestyle{plain}{\pagestyle{fancy}}
@@ -45,17 +28,26 @@ knitr::opts_chunk$set(
 ```
 
 ```{r libs, cache=FALSE}
+
 suppressMessages({
   library(FLCore)
   library(FLa4a)
   library(FLBRP)
   library(ggplotFL)
   library(knitr)
-  library(kableExtra)
   library(gridExtra)
   library(patchwork)
+  library(flextable) # Recommended for Word tables
 })
-theme_set(theme_bw(base_size = 10))
+
+# Remove grids to comply with ICCAT figure guidelines
+theme_set(
+  theme_bw(base_size = 9) +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+)
 
 if (file.exists("analysis/plot_functions.R")) {
   source("analysis/plot_functions.R")
@@ -99,14 +91,10 @@ for (i in seq_along(idx_use)) {
 \emph{SUMMARY}
 \end{center} 
 
-\justifying
-\setlength{\leftskip}{1.2cm}
-\setlength{\rightskip}{1.2cm}
 
-*Following the continuity update of the 2020 Mediterranean swordfish (Xiphias gladius) assessment (SCRS/2026/169), this document explores different submodel configurations in the light of the new catch at age matrix, using the a4a statistical catch-at-age framework. The exploratory runs address historical data coverage, different natural mortality assumptions, and time-varying selectivity. Specifically, we evaluate the impact of assuming an age-dependent Lorenzen natural mortality vector compared to a constant natural mortality ($M=0.2$). Additionally, a tensor product interaction is incorporated into the fishing mortality submodel to capture dynamic selectivity changes across age classes over time.*
-
-\setlength{\leftskip}{0pt}
-\setlength{\rightskip}{0pt}
+::: {custom-style="SummaryText"}
+*Following the continuity update of the 2020 Mediterranean swordfish (Xiphias gladius) assessment, this document explores different submodel configurations in the light of the new catch at age matrix, using the a4a statistical catch-at-age framework. The exploratory runs address historical data coverage, different natural mortality assumptions, and time-varying selectivity. Specifically, we evaluate the impact of assuming an age-dependent Lorenzen natural mortality vector compared to a constant natural mortality ($M=0.2$). Additionally, a tensor product interaction is incorporated into the fishing mortality submodel to capture dynamic selectivity changes across age classes over time.*
+:::
 
 \vspace{0.3cm}
 
@@ -151,7 +139,6 @@ p1 <- ggplot(as.data.frame(catch.n(swo.stk)),
   geom_vline(xintercept = c(1, 2, 3), linetype = "dotted") +
   scale_color_viridis_d(option = "turbo") +
   labs(title = "Catch-at-Age", x = "Age", y = "Numbers", color = "Decade") +
-  theme_bw(base_size = 9) +
   theme(legend.position = "bottom") +
   scale_x_continuous(breaks = c(0:9))
 
@@ -160,7 +147,6 @@ p2 <- ggplot(mat_df, aes(x = as.numeric(as.character(age)), y = data)) +
   geom_line(color = "#2b83ba", linewidth = 0.9) +
   geom_point(color = "#2b83ba", size = 1.6) +
   labs(title = "Maturity Ogive", x = "Age", y = "Proportion Mature") +
-  theme_bw(base_size = 8.5) +
   scale_x_continuous(breaks = c(0:9))
 
 m_df <- rbind(
@@ -177,7 +163,6 @@ p3 <- ggplot(m_df, aes(x = age, y = M, color = Type)) +
   geom_point(size = 1.6) +
   scale_color_manual(values = c("Constant M" = "#d7191c", "Lorenzen M" = "#fdae61")) +            
   labs(title = "Natural Mortality (M)", x = "Age", y = "M", color = NULL) +
-  theme_bw(base_size = 8.5) +
   theme(legend.position = "bottom") +
   scale_x_continuous(breaks = c(0:9))
 
@@ -196,10 +181,9 @@ $$R \sim s(\text{year}, k = 20)$$
 
 For catchability ($q$), constant catchability was assumed for the Greek, Spanish, and Sicilian longlines ($\sim 1$), while a smoother over time ($\sim s(\text{year}, k = 3)$) was applied to the Moroccan and Ligurian indices to account for identified trends.
 
-The observation variance ($vmod$) and initial age structure ($n1mod$) were kept the same as the default settings. 
-<!-- The observation variance ($\sigma^2$) of the catches was modeled using a spline across ages ($\sim s(\text{age}, k = 3)$) assuming no year effect, while the observation variances ($\tau^2$) for all tuning indices were assumed constant ($\sim 1$).  -->
+The observation variance ($\sigma^2$) of the catches was modeled using a spline across ages ($\sim s(\text{age}, k = 3)$) assuming no year effect, while the observation variances ($\tau^2$) for all tuning indices were assumed constant ($\sim 1$). 
 
-<!-- The population's initial age structure in the first year of the assessment ($N_1$) was estimated using a simple age smoother ($\sim s(\text{age}, k = 3)$). -->
+The population's initial age structure in the first year of the assessment ($N_1$) was estimated using a simple age smoother ($\sim s(\text{age}, k = 3)$).
 
 ### 2.3 Sensitivity Runs
 
@@ -294,7 +278,6 @@ ggplot(subset(res_df, qname == "catch.n"), aes(x = year, y = data)) +
                      labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
   facet_wrap(~ age, ncol = 3) +
   labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
-  theme_bw() +
   theme(legend.position = "bottom") + ylim(-3,3)
 ```
 
@@ -309,7 +292,6 @@ ggplot(subset(res_df, !qname %in% c("catch.n", "catch")), aes(x = year, y = data
                      labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
   facet_wrap(~ qname, ncol = 3) +
   labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
-  theme_bw() +
   theme(legend.position = "bottom")
 ```
 
@@ -343,8 +325,7 @@ est_df <- as.data.frame(cd[["est"]]); est_df <- est_df[, c("year", "data")]
       geom_point(aes(color = data > 0), size = 1.8) +
       geom_smooth(se = FALSE, color = "black", linewidth = 0.6) +
       scale_color_manual(values = c("TRUE" = "#2b83ba", "FALSE" = "#d7191c")) +
-      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +            
-      theme_bw(base_size = 9) +
+      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +
       theme(legend.position = "none")
   
     ## Combine into a 2x2 layout
@@ -383,7 +364,7 @@ ggplot(subset(res_df_l, qname == "catch.n"), aes(x = year, y = data)) +
   scale_color_manual(values = c("TRUE" = "#2c7bb6", "FALSE" = "#d7191c")) +
   facet_wrap(~ age, ncol = 3) +
   labs(x = "Year", y = "Standardized Residuals") +
-  theme_bw() + theme(legend.position = "none") + ylim(-3,3)
+  theme(legend.position = "none") + ylim(-3,3)
 ```
 
 ```{r diag-idx-res-l, fig.cap="Standardized residuals for each CPUE index (Lorenzen M).", fig.height=4.5}
@@ -395,7 +376,6 @@ ggplot(subset(res_df_l, !qname %in% c("catch.n", "catch")), aes(x = year, y = da
                      labels = c("TRUE" = "Positive", "FALSE" = "Negative")) +
   facet_wrap(~ qname, ncol = 3) +
   labs(x = "Year", y = "Standardized Residuals", color = "Residual Sign") +
-  theme_bw() +
   theme(legend.position = "bottom")
 ```
 
@@ -420,8 +400,7 @@ est_df <- as.data.frame(cd[["est"]]); est_df <- est_df[, c("year", "data")]
       geom_point(aes(color = data > 0), size = 1.8) +
       geom_smooth(se = FALSE, color = "black", linewidth = 0.6) +
       scale_color_manual(values = c("TRUE" = "#2b83ba", "FALSE" = "#d7191c")) +
-      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +            
-      theme_bw(base_size = 9) +
+      labs(title = "Standardized Catch Residuals (resstd)", x = "Year", y = "Residuals") +
       theme(legend.position = "none")
   
     ## Combine into a 2x2 layout
@@ -430,7 +409,7 @@ est_df <- as.data.frame(cd[["est"]]); est_df <- est_df[, c("year", "data")]
 
 ### 3.5 Retrospective Analysis: Lorenzen M Candidate Run
 
-```{r retro-85-l, fig.height=4.1}
+```{r retro-85-l, fig.height=4.1, fig.cap="Retrospective analysis (5 peels) for the Lorenzen M candidate run."}
 retro_85l <- retro_runs(stk85_l, idx_use, retro = 5, k_f = 20, k_sr = 20, qmod = qmod)
 mohn_ssb <- icesAdvice::mohn(mohnMatrix(retro_85l, ssb))
 mohn_f   <- icesAdvice::mohn(mohnMatrix(retro_85l, fbar))
@@ -486,8 +465,20 @@ ref_table <- data.frame(
   check.names = FALSE
 )
 
-kable(ref_table, row.names = FALSE, booktabs = TRUE, caption = "Table 1: Current stock status and MSY-based reference points for the candidate runs.") %>%
-  kable_styling(latex_options = "hold_position")
+# kable(ref_table, row.names = FALSE, booktabs = TRUE, caption = "Table 1: Current stock status and MSY-based reference points for the candidate runs.") %>%
+#   kable_styling(latex_options = "hold_position")
+
+ref_table_ft <- flextable(ref_table) %>%
+  set_caption("Table 1: Current stock status and MSY-based reference points for the candidate runs.") %>%
+  font(fontname = "Cambria", part = "all") %>%
+  fontsize(size = 10, part = "all") %>%
+  border_remove() %>%                                      # Removes gridlines
+  hline_top(border = fp_border_default(width = 1.5)) %>%   # Standard top horizontal border
+  hline_bottom(border = fp_border_default(width = 1.5)) %>%# Standard bottom border
+  hline(i = 1, part = "header", border = fp_border_default(width = 1)) %>%
+  autofit()
+
+ref_table_ft
 ```
 
 ```{r kobe-c, fig.cap="Kobe phase plot for the Constant M and trajectories of SSB, F and B.", fig.height=4.5}
